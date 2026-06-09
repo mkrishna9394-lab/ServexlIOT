@@ -23,31 +23,98 @@
 										<input name="sensor_type" placeholder="Type">
 											<button>Add</button>
 										</form>
-										<form class="panel" method="post" action="/devices/tag/add">
+										<form class="panel" method="post" action="/devices/tag/add" id="tagForm">
 											<h2>Tag</h2>
-											<select name="sensor_id">{% for s in sensors %}<option value="{{s.id}}">{{s.code}}</option>{% endfor %}</select>
-											<input name="key" placeholder="Payload key">
-												<input name="display_name" placeholder="Display name">
-													<input name="unit" placeholder="Unit">
-														<input name="low_limit" placeholder="Low limit">
-															<input name="high_limit" placeholder="High limit">
-																<button>Add</button>
-															</form>
+
+											<input type="hidden" name="tag_id" id="tag_id">
+
+											<select name="sensor_id" id="sensor_id">
+												{% for s in sensors %}
+												<option value="{{s.id}}">{{s.name}} - {{s.code}}</option>
+												{% endfor %}
+											</select>
+
+											<input name="key" id="tag_key" placeholder="Payload key">
+											<input name="display_name" id="display_name" placeholder="Display name">
+											<input name="unit" id="unit" placeholder="Unit">
+											<input name="low_limit" id="low_limit" placeholder="Low limit">
+											<input name="high_limit" id="high_limit" placeholder="High limit">
+
+											<button id="tagSubmitBtn">Add</button>
+										</form>
 														</div>
 														<div class="panel">
 															<h2>Configured Tags</h2>
+
 															<table>
 																<tr>
 																	<th>ID</th>
+																	<th>Sensor</th>
 																	<th>Key</th>
 																	<th>Name</th>
 																	<th>Unit</th>
 																	<th>Limits</th>
-																</tr>{% for t in tags %}<tr>
+																	<th>Action</th>
+																</tr>
+
+																{% for t in tags %}
+																<tr>
 																	<td>{{t.id}}</td>
+																	<td>{{t.sensor.name if t.sensor else ''}}</td>
 																	<td>{{t.key}}</td>
 																	<td>{{t.display_name}}</td>
 																	<td>{{t.unit}}</td>
 																	<td>{{t.low_limit}} - {{t.high_limit}}</td>
-																</tr>{% endfor %}</table>
-														</div>{% endblock %}
+																	<td>
+																		<div class="action-buttons">
+																		<button
+																			type="button"
+																			class="btn-edit"
+																			onclick="editTag(
+																				'{{t.id}}',
+																				'{{t.sensor_id}}',
+																				`{{t.key}}`,
+																				`{{t.display_name}}`,
+																				`{{t.unit}}`,
+																				'{{t.low_limit if t.low_limit is not none else ""}}',
+																				'{{t.high_limit if t.high_limit is not none else ""}}'
+																			)">
+																			Edit
+																		</button>
+
+																		<form method="post" action="/devices/tag/delete">
+																			<input type="hidden" name="tag_id" value="{{t.id}}">
+																			<button
+																				type="submit"
+																				class="btn-delete"
+																				onclick="return confirm('Remove this tag?')">
+																				Remove
+																			</button>
+																		</form>
+																		</div>
+																	</td>
+																</tr>
+																{% endfor %}
+															</table>
+														</div>
+														<script>
+														function editTag(id, sensorId, key, displayName, unit, lowLimit, highLimit) {
+															document.getElementById('tagForm').action = '/devices/tag/update';
+
+															document.getElementById('tag_id').value = id;
+															document.getElementById('sensor_id').value = sensorId;
+															document.getElementById('tag_key').value = key;
+															document.getElementById('display_name').value = displayName;
+															document.getElementById('unit').value = unit;
+															document.getElementById('low_limit').value = lowLimit;
+															document.getElementById('high_limit').value = highLimit;
+
+															document.getElementById('tagSubmitBtn').innerText = 'Update';
+
+															window.scrollTo({
+																top: 0,
+																behavior: 'smooth'
+															});
+														}
+														</script>
+														{% endblock %}

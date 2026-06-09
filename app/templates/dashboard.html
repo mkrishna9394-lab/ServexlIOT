@@ -1,1 +1,135 @@
-{% extends 'base.html' %}{% block content %}<h1>Super Admin Dashboard</h1><div class="grid">{% for k,v in stats.items() if k!='live' %}<div class="card"><span>{{k|replace('_',' ')|title}}</span><strong>{{v}}</strong></div>{% endfor %}</div><section class="panel"><h2>Live Values</h2><table><tr><th>Tag ID</th><th>Value</th><th>Quality</th><th>Timestamp</th></tr>{% for x in stats.live %}<tr><td>{{x.tag_id}}</td><td>{{x.value}}</td><td>{{x.quality}}</td><td>{{x.timestamp}}</td></tr>{% endfor %}</table></section><canvas id="c"></canvas><script>new Chart(document.getElementById('c'),{type:'line',data:{labels:[{% for x in stats.live %}'{{x.tag_id}}',{% endfor %}],datasets:[{label:'Latest Values',data:[{% for x in stats.live %}{{x.value or 0}},{% endfor %}]}]}})</script>{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Super Admin Dashboard</h1>
+
+<div class="grid">
+    {% for k, v in stats.items() %}
+    <div class="card">
+        <span>{{ k|replace('_',' ')|title }}</span>
+        <strong>{{ v }}</strong>
+    </div>
+    {% endfor %}
+</div>
+
+<section class="panel">
+    <h2>Live Values</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Sensor Name</th>
+                <th>Tag Name</th>
+                <th>Value</th>
+                <th>Live Trend</th>
+            </tr>
+        </thead>
+        <tbody id="liveTableBody">
+            
+        </tbody>
+    </table>
+</section>
+
+<script>
+let historyData = {};
+let chartInstances = {};
+
+function safeId(value) {
+    return String(value).replace(/[^a-zA-Z0-9_]/g, "_");
+}
+
+async function loadLiveValues() {
+    try {
+        const response = await fetch('/api/live-values');
+        const data = await response.json();
+
+        const tbody = document.getElementById('liveTableBody');
+
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="4">No live values available</td></tr>';
+            return;
+        }
+
+        data.forEach(row => {
+            const key = `tag_${row.tag_id}`;
+            const rowId = `row_${safeId(row.tag_id)}`;
+            const canvasId = `trend_${safeId(row.tag_id)}`;
+
+            if (!historyData[key]) {
+                historyData[key] = [];
+            }
+
+            historyData[key].push(Number(row.value));
+
+            if (historyData[key].length > 30) {
+                historyData[key].shift();
+            }
+
+            let tr = document.getElementById(rowId);
+
+            if (!tr) {
+                tr = document.createElement('tr');
+                tr.id = rowId;
+
+                tr.innerHTML = `
+                    <td>${row.sensor_name}</td>
+                    <td>${row.tag_name}</td>
+                    <td id="${rowId}_value">${row.value}</td>
+                    <td style="width:160px;">
+                        <div style="width:140px;height:38px;">
+                            <canvas id="${canvasId}"></canvas>
+                        </div>
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+            } else {
+                document.getElementById(`${rowId}_value`).innerText = row.value;
+            }
+
+            const canvas = document.getElementById(canvasId);
+
+            if (!chartInstances[key]) {
+                chartInstances[key] = new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: historyData[key].map((_, i) => i + 1),
+                        datasets: [{
+                            data: historyData[key],
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        animation: { duration: 500 },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        },
+                        scales: {
+                            x: { display: false },
+                            y: { display: false }
+                        }
+                    }
+                });
+            } else {
+                chartInstances[key].data.labels = historyData[key].map((_, i) => i + 1);
+                chartInstances[key].data.datasets[0].data = historyData[key];
+                chartInstances[key].update('none');
+            }
+        });
+
+    } catch (err) {
+        console.error('Live update error:', err);
+    }
+}
+
+loadLiveValues();
+setInterval(loadLiveValues, 2000);
+</script>
+
+{% endblock %}
