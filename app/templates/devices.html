@@ -1,0 +1,53 @@
+{% extends 'base.html' %}{% block content %}<h1>Device Configuration</h1>
+<div class="three">
+	<form class="panel" method="post" action="/devices/gateway/add">
+		<h2>Gateway</h2>
+		<select name="site_id">
+        {% for s in sites %}
+        <option value="{{s.id}}">{{s.name}}</option>
+        {% endfor %}
+    </select>
+		<input name="code" placeholder="Gateway code">
+			<input name="mqtt_host" placeholder="MQTT Host">
+				<input name="mqtt_port" placeholder="MQTT Port" value="1883">
+					<input name="mqtt_username" placeholder="MQTT Username">
+						<input name="mqtt_password" placeholder="MQTT Password" type="password">
+							<input name="mqtt_topic" placeholder="MQTT Topic">
+								<button>Add</button>
+							</form>
+							<form class="panel" method="post" action="/devices/sensor/add">
+								<h2>Sensor</h2>
+								<select name="gateway_id">{% for g in gateways %}<option value="{{g.id}}">{{g.code}}</option>{% endfor %}</select>
+								<input name="code" placeholder="Sensor code">
+									<input name="name" placeholder="Sensor name">
+										<input name="sensor_type" placeholder="Type">
+											<button>Add</button>
+										</form>
+										<form class="panel" method="post" action="/devices/tag/add">
+											<h2>Tag</h2>
+											<select name="sensor_id">{% for s in sensors %}<option value="{{s.id}}">{{s.code}}</option>{% endfor %}</select>
+											<input name="key" placeholder="Payload key">
+												<input name="display_name" placeholder="Display name">
+													<input name="unit" placeholder="Unit">
+														<input name="low_limit" placeholder="Low limit">
+															<input name="high_limit" placeholder="High limit">
+																<button>Add</button>
+															</form>
+														</div>
+														<div class="panel">
+															<h2>Configured Tags</h2>
+															<table>
+																<tr>
+																	<th>ID</th>
+																	<th>Key</th>
+																	<th>Name</th>
+																	<th>Unit</th>
+																	<th>Limits</th>
+																</tr>{% for t in tags %}<tr>
+																	<td>{{t.id}}</td>
+																	<td>{{t.key}}</td>
+																	<td>{{t.display_name}}</td>
+																	<td>{{t.unit}}</td>
+																	<td>{{t.low_limit}} - {{t.high_limit}}</td>
+																</tr>{% endfor %}</table>
+														</div>{% endblock %}

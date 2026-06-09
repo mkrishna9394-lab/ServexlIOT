@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<h1>Settings</h1><form class="panel" method="post" action="/settings/save"><input name="key" placeholder="Setting key"><input name="value" placeholder="Value"><button>Save</button></form><div class="panel"><table>{% for s in settings %}<tr><td>{{s.key}}</td><td>{{s.value}}</td></tr>{% endfor %}</table></div>{% endblock %}

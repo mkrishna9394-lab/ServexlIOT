@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<h1>Diagnostics</h1><div class="grid"><div class="card"><span>Database</span><strong>{{'OK' if db_ok else 'FAILED'}}</strong></div><div class="card"><span>MQTT Worker</span><strong>{{'Enabled' if mqtt_enabled else 'Disabled'}}</strong></div><div class="card"><span>Scheduler</span><strong>Running</strong></div></div>{% endblock %}
