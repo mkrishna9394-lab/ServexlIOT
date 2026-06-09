@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>MQTT Discovery</h1>
+
+{% if error %}
+<div class="panel" style="border-left: 5px solid red;">
+    <b>Error:</b> {{ error }}
+</div>
+{% endif %}
+
+{% if message %}
+<div class="panel" style="border-left: 5px solid green;">
+    {{ message }}
+</div>
+{% endif %}
+
+<div class="panel">
+    <h2>Discover MQTT Topics & Tags</h2>
+
+    <form method="post" action="/mqtt-discovery/discover">
+        <label>Site</label>
+        <select name="site_id" required>
+            {% for s in sites %}
+            <option value="{{s.id}}"
+                {% if form_data.site_id is defined and form_data.site_id == s.id %}selected{% endif %}>
+                {{s.name}}
+            </option>
+            {% endfor %}
+        </select>
+
+        <input name="gateway_code" placeholder="Gateway / MQTT Source Code"
+               value="{{form_data.gateway_code or 'QIOT_SOURCE_01'}}" required>
+
+        <input name="mqtt_host" placeholder="MQTT Host"
+               value="{{form_data.mqtt_host or 'broker.hivemq.com'}}" required>
+
+        <input name="mqtt_port" placeholder="MQTT Port"
+               value="{{form_data.mqtt_port or '1883'}}" required>
+
+        <input name="mqtt_username" placeholder="MQTT Username"
+               value="{{form_data.mqtt_username or ''}}">
+
+        <input name="mqtt_password" placeholder="MQTT Password" type="password"
+               value="{{form_data.mqtt_password or ''}}">
+
+        <input name="mqtt_topic" placeholder="Main Topic"
+               value="{{form_data.mqtt_topic or 'QIOT/#'}}" required>
+
+        <input name="duration" placeholder="Discovery Duration Seconds"
+               value="{{form_data.duration or '10'}}">
+
+        <button>Discover</button>
+    </form>
+</div>
+
+{% if discovered %}
+<form method="post" action="/mqtt-discovery/save">
+
+    <input type="hidden" name="site_id" value="{{form_data.site_id}}">
+    <input type="hidden" name="gateway_code" value="{{form_data.gateway_code}}">
+    <input type="hidden" name="mqtt_host" value="{{form_data.mqtt_host}}">
+    <input type="hidden" name="mqtt_port" value="{{form_data.mqtt_port}}">
+    <input type="hidden" name="mqtt_username" value="{{form_data.mqtt_username}}">
+    <input type="hidden" name="mqtt_password" value="{{form_data.mqtt_password}}">
+    <input type="hidden" name="mqtt_topic" value="{{form_data.mqtt_topic}}">
+
+    <div class="panel">
+        <h2>Discovered Sub-Topics and Tags</h2>
+
+        {% for base_topic, item in discovered.items() %}
+        <div style="margin-bottom: 25px; padding: 15px; border: 1px solid #ddd; border-radius: 8px;">
+            <h3>{{ item.slot_name }}</h3>
+            <p><b>Topic:</b> {{ item.base_topic }}</p>
+
+            <table>
+                <tr>
+                    <th>Select</th>
+                    <th>Index</th>
+                    <th>Tag Name</th>
+                    <th>Unit</th>
+                    <th>Generated Key</th>
+                </tr>
+
+                {% for tag in item.tags %}
+                <tr>
+                    <td>
+                        <input type="checkbox" name="selected_tags"
+                               value='{{ {
+                                    "base_topic": item.base_topic,
+                                    "slot_name": item.slot_name,
+                                    "idx": tag.idx,
+                                    "name": tag.name,
+                                    "unit": tag.unit,
+                                    "key": tag.key
+                               } | tojson }}'>
+                    </td>
+                    <td>{{ tag.idx }}</td>
+                    <td>{{ tag.name }}</td>
+                    <td>{{ tag.unit }}</td>
+                    <td>{{ tag.key }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        {% endfor %}
+
+        <button type="button" onclick="selectAllTags()">Select All</button>
+        <button type="button" onclick="unselectAllTags()">Unselect All</button>
+        <button type="submit">Save Selected Tags</button>
+    </div>
+</form>
+
+<script>
+function selectAllTags() {
+    document.querySelectorAll('input[name="selected_tags"]').forEach(cb => cb.checked = true);
+}
+
+function unselectAllTags() {
+    document.querySelectorAll('input[name="selected_tags"]').forEach(cb => cb.checked = false);
+}
+</script>
+{% endif %}
+
+{% endblock %}
