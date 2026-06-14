@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from typing import List
+from app.services.event_logger import log_event
 from app.core.database import get_db
 from app.core.templates import templates
 from app.core.deps import require_user
@@ -18,6 +19,20 @@ from app.services.mqtt_worker import start_single_gateway_worker
 router = APIRouter(prefix="/devices")
 
 
+def is_super_admin(user):
+    return user.role and user.role.name == "super_admin"
+
+
+def customer_site_ids(db, user):
+    if is_super_admin(user):
+        return None
+
+    return [
+        s.id for s in db.query(Site)
+        .filter(Site.customer_id == user.customer_id)
+        .all()
+    ]
+
 def to_float(value):
     try:
         return float(value) if str(value).strip() else None
@@ -27,18 +42,63 @@ def to_float(value):
 
 @router.get("")
 def index(request: Request, db: Session = Depends(get_db), user=Depends(require_user)):
+    site_ids = customer_site_ids(db, user)
+
+    sites_query = db.query(Site)
+    gateways_query = db.query(Gateway)
+
+    if site_ids is not None:
+        sites_query = sites_query.filter(Site.id.in_(site_ids))
+        gateways_query = gateways_query.filter(Gateway.site_id.in_(site_ids))
+
+    sites = sites_query.all()
+    gateways = gateways_query.all()
+    gateway_ids = [g.id for g in gateways]
+
+    sensors_query = db.query(Sensor)
+    configured_sensors_query = db.query(ConfiguredMeter)
+    tags_query = db.query(Tag)
+    configured_tags_query = db.query(ConfiguredTag)
+
+    if gateway_ids:
+        sensors_query = sensors_query.filter(Sensor.gateway_id.in_(gateway_ids))
+        configured_sensors_query = configured_sensors_query.filter(
+            ConfiguredMeter.gateway_id.in_(gateway_ids)
+        )
+    else:
+        sensors_query = sensors_query.filter(False)
+        configured_sensors_query = configured_sensors_query.filter(False)
+
+    sensors = sensors_query.all()
+    configured_sensors = configured_sensors_query.all()
+
+    sensor_ids = [s.id for s in sensors]
+    configured_meter_ids = [m.id for m in configured_sensors]
+
+    if sensor_ids:
+        tags_query = tags_query.filter(Tag.sensor_id.in_(sensor_ids))
+    else:
+        tags_query = tags_query.filter(False)
+
+    if configured_meter_ids:
+        configured_tags_query = configured_tags_query.filter(
+            ConfiguredTag.configured_meter_id.in_(configured_meter_ids)
+        )
+    else:
+        configured_tags_query = configured_tags_query.filter(False)
+
     return templates.TemplateResponse(
         "devices.html",
         {
             "request": request,
             "user": user,
-            "sites": db.query(Site).all(),
-            "customers": db.query(Customer).all(),
-            "gateways": db.query(Gateway).all(),
-            "sensors": db.query(Sensor).all(),
-            "tags": db.query(Tag).order_by(Tag.id.desc()).all(),
-            "configured_sensors": db.query(ConfiguredMeter).all(),
-            "configured_tags": db.query(ConfiguredTag).all(),
+            "sites": sites,
+            "gateways": gateways,
+            "customers": db.query(Customer).all() if is_super_admin(user) else db.query(Customer).filter(Customer.id == user.customer_id).all(),
+            "sensors": sensors,
+            "configured_sensors": configured_sensors,
+            "tags": tags_query.order_by(Tag.id.desc()).all(),
+            "configured_tags": configured_tags_query.all(),
         },
     )
 
@@ -158,6 +218,7 @@ def gateway(
                     ))
 
         db.commit()
+        log_event(db, user, "Devices", "Add Gateway", f"Gateway {gateway_obj.code} added/updated")
 
     except Exception as e:
         print("Gateway MQTT discovery failed:", e)
@@ -201,6 +262,7 @@ def sensor_add(
             ))
 
         db.commit()
+        log_event(db, user, "Devices", "Add Meter", f"Configured meter {sensor.name}")
 
     return RedirectResponse("/devices", 303)
 
@@ -224,6 +286,7 @@ def sensor_update(
         meter.sensor_type = sensor_type
         meter.is_active = True
         db.commit()
+        log_event(db, user, "Devices", "Update Meter", f"Updated meter {meter.name}")
 
     return RedirectResponse("/devices", 303)
 
@@ -256,6 +319,7 @@ def sensor_delete(
 
         db.delete(meter)
         db.commit()
+        log_event(db, user, "Devices", "Delete Meter", f"Deleted meter {meter.name}. Reason: {reason}")
 
     return RedirectResponse("/devices", 303)
 
@@ -300,6 +364,7 @@ def tag_add(
                 ))
 
         db.commit()
+        log_event(db, user, "Devices", "Add Tag", f"Configured tag {tag.display_name}")
 
     return RedirectResponse("/devices", 303)
 
@@ -321,6 +386,7 @@ def tag_update(
         ct.high_limit = to_float(high_limit)
         ct.is_active = True
         db.commit()
+        log_event(db, user, "Devices", "Update Tag", f"Updated configured tag {ct.display_name}")
 
     return RedirectResponse("/devices", 303)
 
@@ -339,6 +405,7 @@ def tag_delete(
         db.query(Alert).filter(Alert.tag_id == ct.id).delete()
         db.delete(ct)
         db.commit()
+        log_event(db, user, "Devices", "Delete Tag", f"Deleted configured tag {ct.display_name}")
 
     return RedirectResponse("/devices", 303)
 
@@ -367,6 +434,7 @@ def gateway_update(
         gw.mqtt_password = mqtt_password
         gw.mqtt_topic = mqtt_topic
         db.commit()
+        log_event(db, user, "Devices", "Update Gateway", f"Updated gateway {gw.code}")
 
     return RedirectResponse("/devices", 303)
 
@@ -396,6 +464,7 @@ def gateway_reassign(
 
         gw.site_id = site_id
         db.commit()
+        log_event(db, user, "Devices", "Reassign Gateway", f"Gateway {gw.code} reassigned to {new_site.name}")
 
     return RedirectResponse("/devices", 303)
 
@@ -440,6 +509,7 @@ def gateway_delete(
 
         db.delete(gw)
         db.commit()
+        log_event(db, user, "Devices", "Delete Gateway", f"Deleted gateway {gw.code}. Reason: {reason}")
 
     return RedirectResponse("/devices", 303)
 

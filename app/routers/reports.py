@@ -5,13 +5,37 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
-
+from app.services.event_logger import log_event
 from app.core.database import get_db
 from app.core.templates import templates
 from app.core.deps import require_user
-from app.models import HistoricalValue, ConfiguredTag, ConfiguredMeter, Gateway
+from app.models import HistoricalValue, ConfiguredTag, ConfiguredMeter, Gateway, Site
 
 router = APIRouter(prefix="/reports")
+
+
+def is_super_admin(user):
+    return user.role and user.role.name == "super_admin"
+
+
+def get_customer_gateway_ids(db, user):
+    if is_super_admin(user):
+        return [g.id for g in db.query(Gateway).all()]
+
+    site_ids = [
+        s.id for s in db.query(Site)
+        .filter(Site.customer_id == user.customer_id)
+        .all()
+    ]
+
+    if not site_ids:
+        return []
+
+    return [
+        g.id for g in db.query(Gateway)
+        .filter(Gateway.site_id.in_(site_ids))
+        .all()
+    ]
 
 
 def parse_dt(value):
@@ -26,9 +50,12 @@ def parse_dt(value):
 def clean_id(value):
     if value is None:
         return None
+
     value = str(value).strip()
+
     if value == "":
         return None
+
     return int(value)
 
 
@@ -37,10 +64,13 @@ def get_range_datetimes(range_type, start_datetime, end_datetime):
 
     if range_type == "1h":
         return now - timedelta(hours=1), now
+
     if range_type == "24h":
         return now - timedelta(hours=24), now
+
     if range_type == "7d":
         return now - timedelta(days=7), now
+
     if range_type == "30d":
         return now - timedelta(days=30), now
 
@@ -49,6 +79,7 @@ def get_range_datetimes(range_type, start_datetime, end_datetime):
 
 def build_report_query(
     db,
+    user,
     range_type=None,
     start_datetime=None,
     end_datetime=None,
@@ -63,7 +94,19 @@ def build_report_query(
         .join(Gateway, ConfiguredMeter.gateway_id == Gateway.id)
     )
 
-    start_dt, end_dt = get_range_datetimes(range_type, start_datetime, end_datetime)
+    allowed_gateway_ids = get_customer_gateway_ids(db, user)
+
+    if not is_super_admin(user):
+        if not allowed_gateway_ids:
+            q = q.filter(False)
+        else:
+            q = q.filter(Gateway.id.in_(allowed_gateway_ids))
+
+    start_dt, end_dt = get_range_datetimes(
+        range_type,
+        start_datetime,
+        end_datetime
+    )
 
     if start_dt:
         q = q.filter(HistoricalValue.timestamp >= start_dt)
@@ -76,7 +119,10 @@ def build_report_query(
     configured_tag_id = clean_id(configured_tag_id)
 
     if gateway_id:
-        q = q.filter(Gateway.id == gateway_id)
+        if is_super_admin(user) or gateway_id in allowed_gateway_ids:
+            q = q.filter(Gateway.id == gateway_id)
+        else:
+            q = q.filter(False)
 
     if configured_meter_id:
         q = q.filter(ConfiguredMeter.id == configured_meter_id)
@@ -103,12 +149,34 @@ def index(
 ):
     rows = []
     total_pages = 0
+    PAGE_SIZE = 15
+
+    gateway_ids = get_customer_gateway_ids(db, user)
+
+    gateways = (
+        db.query(Gateway)
+        .filter(Gateway.id.in_(gateway_ids))
+        .all()
+    )
+
+    configured_meters = (
+        db.query(ConfiguredMeter)
+        .filter(ConfiguredMeter.gateway_id.in_(gateway_ids))
+        .all()
+    )
+
+    configured_tags = (
+        db.query(ConfiguredTag)
+        .join(ConfiguredMeter, ConfiguredTag.configured_meter_id == ConfiguredMeter.id)
+        .filter(ConfiguredTag.is_active == True)
+        .filter(ConfiguredMeter.gateway_id.in_(gateway_ids))
+        .all()
+    )
 
     if run == "1":
-        PAGE_SIZE = 15
-
         query = build_report_query(
             db,
+            user,
             range_type,
             start_datetime,
             end_datetime,
@@ -135,9 +203,9 @@ def index(
             "user": user,
             "page": page,
             "total_pages": total_pages,
-            "gateways": db.query(Gateway).all(),
-            "configured_meters": db.query(ConfiguredMeter).all(),
-            "configured_tags": db.query(ConfiguredTag).filter(ConfiguredTag.is_active == True).all(),
+            "gateways": gateways,
+            "configured_meters": configured_meters,
+            "configured_tags": configured_tags,
             "rows": rows,
             "show_report": run == "1",
             "filters": {
@@ -166,6 +234,7 @@ def export(
     rows = (
         build_report_query(
             db,
+            user,
             range_type,
             start_datetime,
             end_datetime,
@@ -181,7 +250,15 @@ def export(
     ws = wb.active
     ws.title = "Historical Data"
 
-    headers = ["Timestamp", "Gateway", "Meter", "Tag", "Value", "Unit", "Source"]
+    headers = [
+        "Timestamp",
+        "Gateway",
+        "Meter",
+        "Tag",
+        "Value",
+        "Unit",
+        "Source"
+    ]
     ws.append(headers)
 
     header_fill = PatternFill("solid", fgColor="0B5E7A")
@@ -211,6 +288,8 @@ def export(
     bio = BytesIO()
     wb.save(bio)
     bio.seek(0)
+    
+    log_event(db, user, "Reports", "Export Excel", "Historical report exported")
 
     return StreamingResponse(
         bio,

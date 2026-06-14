@@ -7,17 +7,35 @@
 </head>
 <body>
 
+{% set role = user.role.name if user and user.role else '' %}
+
 <aside>
     <h2>IIoT Cloud</h2>
+
     <a href="/dashboard">Dashboard</a>
-    <a href="/customers">Customers/Sites</a>
-    <a href="/devices">Devices/Tags</a>
-    <a href="/mqtt-discovery">MQTT Discovery</a>
-    <a href="/reports">Reports</a>
-    <a href="/alerts">Alerts</a>
-    <a href="/users">Users</a>
-    <a href="/diagnostics">Diagnostics</a>
-    <a href="/settings">Settings</a>
+
+    {% if role == 'super_admin' %}
+        <a href="/customers">Customers/Sites</a>
+        <a href="/devices">Devices/Tags</a>
+        <a href="/reports">Reports</a>
+        <a href="/alerts">Alerts</a>
+        <a href="/users">Users</a>
+        <a href="/diagnostics">Diagnostics</a>
+        <a href="/settings">Settings</a>
+		<a href="/event-logs">Event Log</a>
+    {% elif role == 'admin' %}
+        <a href="/devices">Devices/Tags</a>
+        <a href="/reports">Reports</a>
+        <a href="/alerts">Alerts</a>
+        <a href="/diagnostics">Diagnostics</a>
+		<a href="/event-logs">Event Log</a>
+    {% elif role == 'operator' %}
+        <a href="/reports">Reports</a>
+        <a href="/alerts">Alerts</a>
+    {% elif role == 'viewer' %}
+        <a href="/reports">Reports</a>
+    {% endif %}
+
     <a href="/logout">Logout</a>
 </aside>
 

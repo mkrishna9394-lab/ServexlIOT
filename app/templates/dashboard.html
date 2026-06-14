@@ -2,7 +2,11 @@
 
 {% block content %}
 
-<h1>Super Admin Dashboard</h1>
+{% if user.role and user.role.name == 'super_admin' %}
+    <h1>Super Admin Dashboard</h1>
+{% else %}
+    <h1>Customer Dashboard</h1>
+{% endif %}
 
 <div class="grid">
     {% for k, v in stats.items() %}

@@ -15,10 +15,12 @@
         <strong>{{ mqtt_worker_status }}</strong>
     </div>
 
+    {% if is_super_admin %}
     <div class="card">
         <span>Scheduler</span>
         <strong>{{ scheduler_status }}</strong>
     </div>
+    {% endif %}
 
     <div class="card">
         <span>Gateways</span>
@@ -35,17 +37,19 @@
         <strong>{{ offline_count }}</strong>
     </div>
 
+    {% if is_super_admin %}
     <div class="card">
-		<span>Discovered Meters</span>
-		<strong>{{ total_discovered_meters }}</strong>
-	</div>
+        <span>Discovered Meters</span>
+        <strong>{{ total_discovered_meters }}</strong>
+    </div>
 
-	<div class="card">
-		<span>Discovered Tags</span>
-		<strong>{{ total_discovered_tags }}</strong>
-	</div>
-	
-	<div class="card">
+    <div class="card">
+        <span>Discovered Tags</span>
+        <strong>{{ total_discovered_tags }}</strong>
+    </div>
+    {% endif %}
+
+    <div class="card">
         <span>Configured Meters</span>
         <strong>{{ total_sensors }}</strong>
     </div>
@@ -60,10 +64,12 @@
         <strong>{{ total_live_values }}</strong>
     </div>
 
+    {% if is_super_admin %}
     <div class="card">
         <span>Historical Records</span>
         <strong>{{ total_historical_values }}</strong>
     </div>
+    {% endif %}
 
     <div class="card">
         <span>Active Alerts</span>
@@ -107,6 +113,12 @@
             </td>
         </tr>
         {% endfor %}
+
+        {% if not gateway_rows %}
+        <tr>
+            <td colspan="7">No gateways found for this customer.</td>
+        </tr>
+        {% endif %}
     </table>
 </div>
 
@@ -125,22 +137,22 @@
         <tr>
             <td>{{ log.created_at }}</td>
             <td>{{ log.gateway_code }}</td>
-
             <td>
                 {% if log.status == 'Online' %}
-                <span style="color:green;font-weight:bold;">
-                    Online
-                </span>
+                    <span style="color:green;font-weight:bold;">Online</span>
                 {% else %}
-                <span style="color:red;font-weight:bold;">
-                    Offline
-                </span>
+                    <span style="color:red;font-weight:bold;">Offline</span>
                 {% endif %}
             </td>
-
             <td>{{ log.last_seen if log.last_seen else '-' }}</td>
         </tr>
         {% endfor %}
+
+        {% if not health_logs %}
+        <tr>
+            <td colspan="4">No gateway history found for this customer.</td>
+        </tr>
+        {% endif %}
     </table>
 </div>
 
