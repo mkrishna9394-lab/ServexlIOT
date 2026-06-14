@@ -19,7 +19,7 @@
     <table>
         <thead>
             <tr>
-                <th>Sensor Name</th>
+                <th>Meter Name</th>
                 <th>Tag Name</th>
                 <th>Value</th>
                 <th>Live Trend</th>
@@ -32,6 +32,9 @@
 </section>
 
 <script>
+const REFRESH_SECONDS = {{ dashboard_refresh_seconds }};
+const MAX_POINTS = {{ live_trend_points }};
+
 let historyData = {};
 let chartInstances = {};
 
@@ -62,7 +65,7 @@ async function loadLiveValues() {
 
             historyData[key].push(Number(row.value));
 
-            if (historyData[key].length > 30) {
+            if (historyData[key].length > MAX_POINTS) {
                 historyData[key].shift();
             }
 
@@ -73,7 +76,7 @@ async function loadLiveValues() {
                 tr.id = rowId;
 
                 tr.innerHTML = `
-                    <td>${row.sensor_name}</td>
+                    <td>${row.meter_name}</td>
                     <td>${row.tag_name}</td>
                     <td id="${rowId}_value">${row.value}</td>
                     <td style="width:160px;">
@@ -129,7 +132,7 @@ async function loadLiveValues() {
 }
 
 loadLiveValues();
-setInterval(loadLiveValues, 2000);
+setInterval(loadLiveValues, REFRESH_SECONDS * 1000);
 </script>
 
 {% endblock %}

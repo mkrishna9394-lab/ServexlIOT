@@ -1,1 +1,171 @@
-{% extends 'base.html' %}{% block content %}<h1>Customer & Site Management</h1><div class="two"><form class="panel" method="post" action="/customers/add"><h2>Add Customer</h2><input name="name" placeholder="Customer name"><input name="contact_email" placeholder="Email"><button>Add</button></form><form class="panel" method="post" action="/customers/site/add"><h2>Add Site</h2><select name="customer_id">{% for c in customers %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}</select><input name="name" placeholder="Site name"><input name="location" placeholder="Location"><button>Add</button></form></div><div class="panel"><table><tr><th>Customer</th><th>Email</th></tr>{% for c in customers %}<tr><td>{{c.name}}</td><td>{{c.contact_email}}</td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Customer & Site Management</h1>
+
+<div class="two">
+
+    <form class="panel" method="post" action="/customers/add" id="customerForm">
+        <h2>Customer Management</h2>
+
+        <input type="hidden" name="customer_id" id="customer_id">
+
+        <input name="name" id="customer_name" placeholder="Customer name">
+
+        <input name="contact_email" id="customer_email" placeholder="Email">
+
+        <button id="customerBtn">Add Customer</button>
+    </form>
+
+    <form class="panel" method="post" action="/customers/site/add" id="siteForm">
+        <h2>Site Management</h2>
+
+        <input type="hidden" name="site_id" id="site_id">
+
+        <select name="customer_id" id="site_customer_id">
+            {% for c in customers %}
+            <option value="{{c.id}}">{{c.name}}</option>
+            {% endfor %}
+        </select>
+
+        <input name="name" id="site_name" placeholder="Site name">
+
+        <input name="location" id="site_location" placeholder="Location">
+
+        <button id="siteBtn">Add Site</button>
+    </form>
+
+</div>
+
+<div class="panel">
+    <h2>Configured Customers</h2>
+
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Customer</th>
+            <th>Email</th>
+            <th>Action</th>
+        </tr>
+
+        {% for c in customers %}
+        <tr>
+            <td>{{c.id}}</td>
+            <td>{{c.name}}</td>
+            <td>{{c.contact_email}}</td>
+            <td>
+                <div class="action-buttons">
+
+                    <button
+                        type="button"
+                        class="btn-edit"
+                        onclick="editCustomer(
+                            '{{c.id}}',
+                            `{{c.name}}`,
+                            `{{c.contact_email}}`
+                        )">
+                        Edit
+                    </button>
+
+                    <form method="post" action="/customers/delete">
+                        <input type="hidden" name="customer_id" value="{{c.id}}">
+
+                        <button
+                            type="submit"
+                            class="btn-delete"
+                            onclick="return confirm('Delete this customer and all related sites, gateways, sensors, tags and historical data?')">
+                            Remove
+                        </button>
+                    </form>
+
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<div class="panel">
+    <h2>Configured Sites</h2>
+
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Customer</th>
+            <th>Site</th>
+            <th>Location</th>
+            <th>Action</th>
+        </tr>
+
+        {% for s in sites %}
+        <tr>
+            <td>{{s.id}}</td>
+            <td>{{s.customer.name if s.customer else ''}}</td>
+            <td>{{s.name}}</td>
+            <td>{{s.location}}</td>
+            <td>
+                <div class="action-buttons">
+
+                    <button
+                        type="button"
+                        class="btn-edit"
+                        onclick="editSite(
+                            '{{s.id}}',
+                            '{{s.customer_id}}',
+                            `{{s.name}}`,
+                            `{{s.location}}`
+                        )">
+                        Edit
+                    </button>
+
+                    <form method="post" action="/customers/site/delete">
+                        <input type="hidden" name="site_id" value="{{s.id}}">
+
+                        <button
+                            type="submit"
+                            class="btn-delete"
+                            onclick="return confirm('Delete this site and all related gateways, sensors, tags and historical data?')">
+                            Remove
+                        </button>
+                    </form>
+
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<script>
+function editCustomer(id, name, email) {
+    document.getElementById('customer_id').value = id;
+    document.getElementById('customer_name').value = name;
+    document.getElementById('customer_email').value = email;
+
+    document.getElementById('customerForm').action = '/customers/update';
+    document.getElementById('customerBtn').innerText = 'Update Customer';
+
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+function editSite(id, customerId, name, location) {
+    document.getElementById('site_id').value = id;
+    document.getElementById('site_customer_id').value = customerId;
+    document.getElementById('site_name').value = name;
+    document.getElementById('site_location').value = location;
+
+    document.getElementById('siteForm').action = '/customers/site/update';
+    document.getElementById('siteBtn').innerText = 'Update Site';
+
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+</script>
+
+{% endblock %}
