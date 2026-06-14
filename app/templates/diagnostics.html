@@ -1,1 +1,153 @@
-{% extends 'base.html' %}{% block content %}<h1>Diagnostics</h1><div class="grid"><div class="card"><span>Database</span><strong>{{'OK' if db_ok else 'FAILED'}}</strong></div><div class="card"><span>MQTT Worker</span><strong>{{'Enabled' if mqtt_enabled else 'Disabled'}}</strong></div><div class="card"><span>Scheduler</span><strong>Running</strong></div></div>{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Diagnostics</h1>
+
+<div class="grid">
+    <div class="card">
+        <span>Database</span>
+        <strong>{{ 'OK' if db_ok else 'FAILED' }}</strong>
+    </div>
+
+    <div class="card">
+        <span>MQTT Worker</span>
+        <strong>{{ mqtt_worker_status }}</strong>
+    </div>
+
+    <div class="card">
+        <span>Scheduler</span>
+        <strong>{{ scheduler_status }}</strong>
+    </div>
+
+    <div class="card">
+        <span>Gateways</span>
+        <strong>{{ total_gateways }}</strong>
+    </div>
+
+    <div class="card">
+        <span>Online</span>
+        <strong>{{ online_count }}</strong>
+    </div>
+
+    <div class="card">
+        <span>Offline</span>
+        <strong>{{ offline_count }}</strong>
+    </div>
+
+    <div class="card">
+		<span>Discovered Meters</span>
+		<strong>{{ total_discovered_meters }}</strong>
+	</div>
+
+	<div class="card">
+		<span>Discovered Tags</span>
+		<strong>{{ total_discovered_tags }}</strong>
+	</div>
+	
+	<div class="card">
+        <span>Configured Meters</span>
+        <strong>{{ total_sensors }}</strong>
+    </div>
+
+    <div class="card">
+        <span>Configured Tags</span>
+        <strong>{{ total_tags }}</strong>
+    </div>
+
+    <div class="card">
+        <span>Live Values</span>
+        <strong>{{ total_live_values }}</strong>
+    </div>
+
+    <div class="card">
+        <span>Historical Records</span>
+        <strong>{{ total_historical_values }}</strong>
+    </div>
+
+    <div class="card">
+        <span>Active Alerts</span>
+        <strong>{{ active_alerts }}</strong>
+    </div>
+</div>
+
+<div class="panel">
+    <h2>Gateway Communication Health</h2>
+
+    <p>
+        Gateway is considered offline if no data is received for
+        <b>{{ offline_seconds }}</b> seconds.
+    </p>
+
+    <table>
+        <tr>
+            <th>Gateway</th>
+            <th>MQTT Host</th>
+            <th>Port</th>
+            <th>Topic</th>
+            <th>Last Communication</th>
+            <th>Communicated Since</th>
+            <th>Status</th>
+        </tr>
+
+        {% for gw in gateway_rows %}
+        <tr>
+            <td>{{ gw.code }}</td>
+            <td>{{ gw.mqtt_host }}</td>
+            <td>{{ gw.mqtt_port }}</td>
+            <td>{{ gw.mqtt_topic }}</td>
+            <td>{{ gw.last_seen }}</td>
+            <td>{{ gw.communicated_since }}</td>
+            <td>
+                {% if gw.status == 'Online' %}
+                    <span style="color:green;font-weight:bold;">Online</span>
+                {% else %}
+                    <span style="color:red;font-weight:bold;">Offline</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<div class="panel">
+    <h2>Gateway Status History</h2>
+
+    <table>
+        <tr>
+            <th>Date Time</th>
+            <th>Gateway</th>
+            <th>Status</th>
+            <th>Last Seen</th>
+        </tr>
+
+        {% for log in health_logs %}
+        <tr>
+            <td>{{ log.created_at }}</td>
+            <td>{{ log.gateway_code }}</td>
+
+            <td>
+                {% if log.status == 'Online' %}
+                <span style="color:green;font-weight:bold;">
+                    Online
+                </span>
+                {% else %}
+                <span style="color:red;font-weight:bold;">
+                    Offline
+                </span>
+                {% endif %}
+            </td>
+
+            <td>{{ log.last_seen if log.last_seen else '-' }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<script>
+setTimeout(() => {
+    window.location.reload();
+}, 10000);
+</script>
+
+{% endblock %}
