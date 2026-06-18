@@ -1,1 +1,62 @@
-<!doctype html><html><head><title>Login</title><link rel="stylesheet" href="/static/css/app.css"></head><body class="login"><form class="login-card" method="post"><h1>Industrial IoT Cloud</h1><p>Secure platform access</p>{% if error %}<div class="error">{{error}}</div>{% endif %}<input name="email" placeholder="Email" required><input type="password" name="password" placeholder="Password" required><button>Login</button><a href="/forgot-password">Forgot password?</a></form></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login | Servexl IOT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="login login-showcase">
+    <main class="showcase-stage">
+        <div class="ambient-card card-left-top">
+            <div class="avatar-orbit"><i class="fa-solid fa-user-gear"></i><span></span><span></span><span></span></div>
+        </div>
+        <div class="ambient-card card-right-top">
+            <div class="toggle-visual"><span></span><b></b></div>
+        </div>
+        <div class="ambient-card card-right-bottom">
+            <div class="alert-stack"><span></span><span></span><span></span></div>
+        </div>
+        <div class="ambient-card card-left-bottom">
+            <div class="alert-stack mini-left-stack"><span></span><span></span><span></span></div>
+        </div>
+        <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div><div class="dot d5"></div>
+
+        <section class="hero-center">
+            <div class="login-brand-mark">
+                <div class="brand-logo">SX</div>
+                <strong>Servexl IOT</strong>
+            </div>
+            <p class="hero-kicker">LET'S CONNECT YOUR FACTORY</p>
+            <h1>The IIoT Cloud Platform Your Plant Needs.</h1>
+            <p class="hero-subtitle">Bring gateways, sensors, MQTT data, machine health, alerts and production reports into one beautiful real-time workspace.</p>
+            <div class="hero-pills">
+                <span><i class="fa-solid fa-satellite-dish"></i> MQTT Ready</span>
+                <span><i class="fa-solid fa-chart-line"></i> Live Trends</span>
+                <span><i class="fa-solid fa-shield-halved"></i> Secure Access</span>
+            </div>
+        </section>
+
+        <form class="floating-login-card" method="post">
+            <div class="login-card-top">
+                <div>
+                    <span class="secure-chip"><i class="fa-solid fa-lock"></i> Operator Login</span>
+                    <h2>Welcome back</h2>
+                </div>
+                <div class="mini-logo">SX</div>
+            </div>
+            <p>Access your Servexl industrial monitoring dashboard.</p>
+            {% if error %}<div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{error}}</div>{% endif %}
+            <label>Email</label>
+            <div class="input-icon"><i class="fa-solid fa-envelope"></i><input name="email" placeholder="admin@company.com" required></div>
+            <label>Password</label>
+            <div class="input-icon"><i class="fa-solid fa-key"></i><input type="password" name="password" placeholder="Enter password" required></div>
+            <button><i class="fa-solid fa-right-to-bracket"></i> Login</button>
+            <div class="login-help"><a href="/forgot-password">Forgot password?</a><span><i class="fa-solid fa-circle-check"></i> Cloud ready</span></div>
+        </form>
+    </main>
+</body>
+</html>

@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Request, Depends, Form
+from fastapi import APIRouter, Request, Depends, Form, File, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+from pathlib import Path
+import shutil
 
 from app.core.database import get_db
 from app.core.templates import templates
@@ -60,6 +62,7 @@ def save(
     data_offline_seconds: str = Form(...),
     historical_retention_days: str = Form(...),
     live_trend_points: str = Form(...),
+    logo_file: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     user=Depends(require_user)
 ):
@@ -80,6 +83,14 @@ def save(
 
         setting.value = value
         db.add(setting)
+
+
+    if logo_file and logo_file.filename:
+        upload_dir = Path("app/static/uploads")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        logo_path = upload_dir / "logo.png"
+        with logo_path.open("wb") as buffer:
+            shutil.copyfileobj(logo_file.file, buffer)
 
     db.commit()
     return RedirectResponse("/settings", 303)
