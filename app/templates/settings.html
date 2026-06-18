@@ -1,1 +1,53 @@
-{% extends 'base.html' %}{% block content %}<h1>Settings</h1><form class="panel" method="post" action="/settings/save"><input name="key" placeholder="Setting key"><input name="value" placeholder="Value"><button>Save</button></form><div class="panel"><table>{% for s in settings %}<tr><td>{{s.key}}</td><td>{{s.value}}</td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Settings</h1>
+
+<form class="panel" method="post" action="/settings/save" enctype="multipart/form-data">
+    <h2>Application Settings</h2>
+
+    <label>Application Name</label>
+    <input name="app_name" value="{{ settings.app_name }}">
+
+    <label>Dashboard Refresh Seconds</label>
+    <input name="dashboard_refresh_seconds" type="number" min="1" value="{{ settings.dashboard_refresh_seconds }}">
+
+    <label>Diagnostics Refresh Seconds</label>
+    <input name="diagnostics_refresh_seconds" type="number" min="5" value="{{ settings.diagnostics_refresh_seconds }}">
+
+    <label>Gateway Offline Seconds</label>
+    <input name="data_offline_seconds" type="number" min="10" value="{{ settings.data_offline_seconds }}">
+
+    <label>Historical Data Retention Days</label>
+    <input name="historical_retention_days" type="number" min="1" value="{{ settings.historical_retention_days }}">
+
+    <label>Live Trend Points</label>
+    <input name="live_trend_points" type="number" min="5" value="{{ settings.live_trend_points }}">
+
+    <label>Top-left Logo</label>
+    <input name="logo_file" type="file" accept="image/*">
+    <p class="subtitle">Upload a logo to replace the SX mark in the sidebar. PNG/JPG/SVG supported.</p>
+
+    <button>Save Settings</button>
+</form>
+
+<div class="panel">
+    <h2>Current Settings</h2>
+
+    <table>
+        <tr>
+            <th>Setting</th>
+            <th>Value</th>
+        </tr>
+
+        {% for key, value in settings.items() %}
+        <tr>
+            <td>{{ key }}</td>
+            <td>{{ value }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+{% endblock %}

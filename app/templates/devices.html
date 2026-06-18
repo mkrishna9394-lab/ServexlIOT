@@ -1,53 +1,516 @@
-{% extends 'base.html' %}{% block content %}<h1>Device Configuration</h1>
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Device Configuration</h1>
+
 <div class="three">
-	<form class="panel" method="post" action="/devices/gateway/add">
-		<h2>Gateway</h2>
-		<select name="site_id">
-        {% for s in sites %}
-        <option value="{{s.id}}">{{s.name}}</option>
+
+    <form class="panel" method="post" action="/devices/gateway/add">
+        <h2>Gateway</h2>
+
+        <select name="site_id">
+            {% for s in sites %}
+            <option value="{{s.id}}">{{s.name}}</option>
+            {% endfor %}
+        </select>
+
+        <input name="code" placeholder="Gateway code" required>
+        <input name="mqtt_host" placeholder="MQTT Host">
+        <input name="mqtt_port" placeholder="MQTT Port" value="1883">
+        <input name="mqtt_username" placeholder="MQTT Username">
+        <input name="mqtt_password" placeholder="MQTT Password" type="password">
+        <input name="mqtt_topic" placeholder="MQTT Topic">
+
+        <button>Add Gateway</button>
+    </form>
+
+    <form class="panel" method="post" action="/devices/sensor/add">
+		<h2>Meters</h2>
+
+		<select name="gateway_id" id="meter_gateway_id">
+			{% for g in gateways %}
+			<option value="{{g.id}}">{{g.code}}</option>
+			{% endfor %}
+		</select>
+
+		<select name="sensor_id" id="meter_name" required>
+			<option value="">Select Meter</option>
+			{% for s in sensors %}
+			<option value="{{s.id}}"
+					data-gateway="{{s.gateway_id}}"
+					data-code="{{s.code}}"
+					data-name="{{s.name}}"
+					data-type="{{s.sensor_type}}">
+				{{s.name}} - {{s.code}}
+			</option>
+			{% endfor %}
+		</select>
+
+		<input name="sensor_type" placeholder="Meter Type" value="">
+
+		<button>Add Meter</button>
+	</form>
+
+    <form class="panel" method="post" action="/devices/tag/add" id="tagForm">
+        <h2>Configure Tag</h2>
+
+        <select id="tag_gateway_filter">
+            <option value="">Select Gateway</option>
+            {% for g in gateways %}
+            <option value="{{g.id}}">{{g.code}}</option>
+            {% endfor %}
+        </select>
+
+        <select name="configured_meter_id" id="configured_meter_id" required>
+            <option value="">Select Configured Meter</option>
+            {% for m in configured_sensors %}
+            <option value="{{m.id}}" data-gateway="{{m.gateway_id}}" data-sensor="{{m.sensor_id}}">
+                {{m.name}}
+            </option>
+            {% endfor %}
+        </select>
+
+        <div id="tag_container" style="height:250px;overflow-y:auto;border:1px solid #ccc;padding:10px;border-radius:6px;">
+			{% for t in tags %}
+			<label class="tag-item"
+				   data-sensor="{{t.sensor_id}}"
+				   style="display:flex;align-items:center;gap:10px;padding:8px 4px;">
+				<input type="checkbox"
+					   name="tag_ids"
+					   value="{{t.id}}"
+					   style="width:18px;height:18px;margin:0;">
+				<span>{{t.display_name}} - {{t.unit}}</span>
+			</label>
+			{% endfor %}
+		</div>
+
+        <input name="low_limit" id="low_limit" placeholder="Low limit">
+        <input name="high_limit" id="high_limit" placeholder="High limit">
+
+        <button id="tagSubmitBtn">Add Tag</button>
+    </form>
+
+</div>
+
+<div class="panel" id="reassignPanel" style="display:none;">
+    <h2>Re-assign Gateway</h2>
+
+    <form method="post" action="/devices/gateway/reassign">
+        <input type="hidden" name="gateway_id" id="reassign_gateway_id">
+
+        <label>Customer</label>
+        <select id="reassign_customer_id">
+            <option value="">Select Customer</option>
+            {% for c in customers %}
+            <option value="{{c.id}}">{{c.name}}</option>
+            {% endfor %}
+        </select>
+
+        <label>Site</label>
+        <select name="site_id" id="reassign_site_id" required>
+            <option value="">Select Site</option>
+            {% for s in sites %}
+            <option value="{{s.id}}" data-customer="{{s.customer_id}}">
+                {{s.name}}
+            </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Re-assign</button>
+        <button type="button" class="btn-delete" onclick="closeReassignPanel()">Cancel</button>
+    </form>
+</div>
+
+<div class="panel">
+    <h2>Configured Gateways</h2>
+
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Customer</th>
+            <th>Site</th>
+            <th>Code</th>
+            <th>MQTT Host</th>
+            <th>Port</th>
+            <th>Topic</th>
+            <th>Last Seen</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+
+        {% for g in gateways %}
+        <tr>
+            <td>{{ g.id }}</td>
+            <td>{{ g.site.customer.name if g.site and g.site.customer else '' }}</td>
+            <td>{{ g.site.name if g.site else '' }}</td>
+            <td>{{ g.code }}</td>
+            <td>{{ g.mqtt_host }}</td>
+            <td>{{ g.mqtt_port }}</td>
+            <td>{{ g.mqtt_topic }}</td>
+            <td>{{ g.last_seen if g.last_seen else 'Never' }}</td>
+            <td>{{ 'Active' if g.is_active else 'Inactive' }}</td>
+            <td>
+                <div class="action-buttons">
+                    <button type="button" class="btn-edit"
+                        onclick="editGateway('{{g.id}}','{{g.site_id}}','{{g.code}}','{{g.mqtt_host}}','{{g.mqtt_port}}','{{g.mqtt_username}}','{{g.mqtt_password}}','{{g.mqtt_topic}}')">
+                        Edit
+                    </button>
+
+                    <button type="button" class="btn-edit" onclick="reassignGateway('{{g.id}}')">
+                        Re-assign
+                    </button>
+
+                    <button type="button" class="btn-edit" onclick="showGatewayHistory('{{g.id}}')">
+                        History
+                    </button>
+
+                    <form method="post" action="/devices/gateway/delete" onsubmit="return setDeleteReason(this, 'gateway')">
+                        <input type="hidden" name="gateway_id" value="{{g.id}}">
+                        <input type="hidden" name="reason">
+                        <button type="submit" class="btn-delete">Remove</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
         {% endfor %}
-    </select>
-		<input name="code" placeholder="Gateway code">
-			<input name="mqtt_host" placeholder="MQTT Host">
-				<input name="mqtt_port" placeholder="MQTT Port" value="1883">
-					<input name="mqtt_username" placeholder="MQTT Username">
-						<input name="mqtt_password" placeholder="MQTT Password" type="password">
-							<input name="mqtt_topic" placeholder="MQTT Topic">
-								<button>Add</button>
-							</form>
-							<form class="panel" method="post" action="/devices/sensor/add">
-								<h2>Sensor</h2>
-								<select name="gateway_id">{% for g in gateways %}<option value="{{g.id}}">{{g.code}}</option>{% endfor %}</select>
-								<input name="code" placeholder="Sensor code">
-									<input name="name" placeholder="Sensor name">
-										<input name="sensor_type" placeholder="Type">
-											<button>Add</button>
-										</form>
-										<form class="panel" method="post" action="/devices/tag/add">
-											<h2>Tag</h2>
-											<select name="sensor_id">{% for s in sensors %}<option value="{{s.id}}">{{s.code}}</option>{% endfor %}</select>
-											<input name="key" placeholder="Payload key">
-												<input name="display_name" placeholder="Display name">
-													<input name="unit" placeholder="Unit">
-														<input name="low_limit" placeholder="Low limit">
-															<input name="high_limit" placeholder="High limit">
-																<button>Add</button>
-															</form>
-														</div>
-														<div class="panel">
-															<h2>Configured Tags</h2>
-															<table>
-																<tr>
-																	<th>ID</th>
-																	<th>Key</th>
-																	<th>Name</th>
-																	<th>Unit</th>
-																	<th>Limits</th>
-																</tr>{% for t in tags %}<tr>
-																	<td>{{t.id}}</td>
-																	<td>{{t.key}}</td>
-																	<td>{{t.display_name}}</td>
-																	<td>{{t.unit}}</td>
-																	<td>{{t.low_limit}} - {{t.high_limit}}</td>
-																</tr>{% endfor %}</table>
-														</div>{% endblock %}
+    </table>
+</div>
+
+{% if configured_sensors %}
+<div class="panel">
+    <h2>Configured Meters</h2>
+
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Gateway</th>
+            <th>Meter Code</th>
+            <th>Meter Name</th>
+            <th>Meter Type</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+
+        {% for s in configured_sensors %}
+        <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.gateway.code if s.gateway else '' }}</td>
+            <td>{{ s.code }}</td>
+            <td>{{ s.name }}</td>
+            <td>{{ s.sensor_type }}</td>
+            <td>{{ 'Active' if s.is_active else 'Inactive' }}</td>
+            <td>
+                <div class="action-buttons">
+                    <button type="button" class="btn-edit"
+                        onclick="editMeter('{{s.id}}','{{s.gateway_id}}','{{s.code}}','{{s.name}}','{{s.sensor_type}}')">
+                        Edit
+                    </button>
+
+                    <form method="post" action="/devices/sensor/delete" onsubmit="return setDeleteReason(this, 'meter')">
+                        <input type="hidden" name="configured_meter_id" value="{{s.id}}">
+                        <input type="hidden" name="reason">
+                        <button type="submit" class="btn-delete">Remove</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+{% if configured_tags %}
+<div class="panel">
+    <h2>Configured Tags</h2>
+
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Meter</th>
+            <th>Key</th>
+            <th>Name</th>
+            <th>Unit</th>
+            <th>Limits</th>
+            <th>Configured</th>
+            <th>Action</th>
+        </tr>
+
+        {% for t in configured_tags %}
+        <tr>
+            <td>{{t.id}}</td>
+            <td>{{t.configured_meter.name if t.configured_meter else ''}}</td>
+            <td>{{t.key}}</td>
+            <td>{{t.display_name}}</td>
+            <td>{{t.unit}}</td>
+            <td>{{t.low_limit}} - {{t.high_limit}}</td>
+            <td><span style="color:green;font-weight:bold;">Yes</span></td>
+            <td>
+                <div class="action-buttons">
+                    <button type="button" class="btn-edit"
+                        onclick="editTag('{{t.id}}','{{t.configured_meter_id}}','{{t.low_limit if t.low_limit is not none else ""}}','{{t.high_limit if t.high_limit is not none else ""}}')">
+                        Edit
+                    </button>
+
+                    <form method="post" action="/devices/tag/delete">
+                        <input type="hidden" name="configured_tag_id" value="{{t.id}}">
+                        <button type="submit" class="btn-delete" onclick="return confirm('Remove this configured tag?')">
+                            Remove
+                        </button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+<div id="gatewayHistoryModal" style="display:none;position:fixed;inset:0;background:#0008;z-index:9999;">
+    <div class="panel" style="width:80%;margin:60px auto;background:white;">
+        <h2>Gateway Assignment History</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Date Time</th>
+                    <th>Action</th>
+                    <th>From Customer</th>
+                    <th>From Site</th>
+                    <th>To Customer</th>
+                    <th>To Site</th>
+                </tr>
+            </thead>
+            <tbody id="gatewayHistoryBody"></tbody>
+        </table>
+
+        <button type="button" class="btn-delete" onclick="closeGatewayHistory()">Close</button>
+    </div>
+</div>
+
+<script>
+const tagGatewayFilter = document.getElementById("tag_gateway_filter");
+const meterSelect = document.getElementById("configured_meter_id");
+const tagContainer = document.getElementById("tag_container");
+
+const meterGatewaySelect = document.getElementById("meter_gateway_id");
+const meterNameSelect = document.getElementById("meter_name");
+
+const reassignPanel = document.getElementById("reassignPanel");
+const reassignCustomerSelect = document.getElementById("reassign_customer_id");
+const reassignSiteSelect = document.getElementById("reassign_site_id");
+
+function reassignGateway(gatewayId) {
+    document.getElementById("reassign_gateway_id").value = gatewayId;
+    reassignPanel.style.display = "block";
+    reassignCustomerSelect.value = "";
+    reassignSiteSelect.value = "";
+    filterReassignSites();
+    reassignPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeReassignPanel() {
+    reassignPanel.style.display = "none";
+}
+
+function filterReassignSites() {
+    const customerId = reassignCustomerSelect.value;
+
+    Array.from(reassignSiteSelect.options).forEach(option => {
+        if (option.value === "") {
+            option.hidden = false;
+            return;
+        }
+        option.hidden = customerId && option.dataset.customer !== customerId;
+    });
+
+    reassignSiteSelect.value = "";
+}
+
+reassignCustomerSelect.addEventListener("change", filterReassignSites);
+filterReassignSites();
+
+async function showGatewayHistory(gatewayId) {
+    const modal = document.getElementById("gatewayHistoryModal");
+    const body = document.getElementById("gatewayHistoryBody");
+
+    body.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
+    modal.style.display = "block";
+
+    try {
+        const response = await fetch(`/devices/gateway/history/${gatewayId}`);
+        const data = await response.json();
+
+        if (!data.length) {
+            body.innerHTML = "<tr><td colspan='6'>No history found.</td></tr>";
+            return;
+        }
+
+        body.innerHTML = "";
+
+        data.forEach(row => {
+            body.innerHTML += `
+                <tr>
+                    <td>${row.date}</td>
+                    <td>${row.action}</td>
+                    <td>${row.from_customer}</td>
+                    <td>${row.from_site}</td>
+                    <td>${row.to_customer}</td>
+                    <td>${row.to_site}</td>
+                </tr>
+            `;
+        });
+
+    } catch (err) {
+        body.innerHTML = "<tr><td colspan='6'>Failed to load history.</td></tr>";
+        console.error(err);
+    }
+}
+
+function closeGatewayHistory() {
+    document.getElementById("gatewayHistoryModal").style.display = "none";
+}
+
+function filterMeterNames() {
+    if (!meterGatewaySelect || !meterNameSelect) return;
+
+    const gatewayId = meterGatewaySelect.value;
+
+    Array.from(meterNameSelect.options).forEach(option => {
+        if (option.value === "") {
+            option.hidden = false;
+            return;
+        }
+
+        option.hidden = gatewayId && option.dataset.gateway !== gatewayId;
+    });
+
+    meterNameSelect.value = "";
+}
+
+function filterConfiguredMetersByGateway() {
+    const gatewayId = tagGatewayFilter.value;
+
+    Array.from(meterSelect.options).forEach(option => {
+        if (option.value === "") {
+            option.hidden = false;
+            return;
+        }
+
+        option.hidden = gatewayId && option.dataset.gateway !== gatewayId;
+    });
+
+    meterSelect.value = "";
+    filterTagsByConfiguredMeter();
+}
+
+function filterTagsByConfiguredMeter() {
+    const selectedMeter = meterSelect.options[meterSelect.selectedIndex];
+
+    document.querySelectorAll(".tag-item input").forEach(cb => {
+        cb.checked = false;
+    });
+
+    if (!selectedMeter || selectedMeter.value === "") {
+        document.querySelectorAll(".tag-item").forEach(item => {
+            item.style.display = "none";
+        });
+        return;
+    }
+
+    const sensorId = selectedMeter.dataset.sensor;
+
+    document.querySelectorAll(".tag-item").forEach(item => {
+        item.style.display =
+            item.dataset.sensor === sensorId
+                ? "block"
+                : "none";
+    });
+}
+
+if (meterGatewaySelect) {
+    meterGatewaySelect.addEventListener("change", filterMeterNames);
+    filterMeterNames();
+}
+
+tagGatewayFilter.addEventListener("change", filterConfiguredMetersByGateway);
+meterSelect.addEventListener("change", filterTagsByConfiguredMeter);
+
+filterConfiguredMetersByGateway();
+
+function setDeleteReason(form, itemType) {
+    const reason = prompt(`Enter reason for deleting this ${itemType}:`);
+
+    if (!reason || reason.trim() === "") {
+        alert("Delete reason is required.");
+        return false;
+    }
+
+    form.querySelector('input[name="reason"]').value = reason.trim();
+    return confirm(`Are you sure you want to delete this ${itemType}?`);
+}
+
+function editGateway(id, siteId, code, host, port, username, password, topic) {
+    const form = document.querySelector('form[action="/devices/gateway/add"]');
+
+    form.action = "/devices/gateway/update";
+
+    if (!document.getElementById("gateway_id")) {
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "gateway_id";
+        hidden.id = "gateway_id";
+        form.appendChild(hidden);
+    }
+
+    document.getElementById("gateway_id").value = id;
+    form.querySelector('[name="site_id"]').value = siteId;
+    form.querySelector('[name="code"]').value = code;
+    form.querySelector('[name="mqtt_host"]').value = host;
+    form.querySelector('[name="mqtt_port"]').value = port;
+    form.querySelector('[name="mqtt_username"]').value = username;
+    form.querySelector('[name="mqtt_password"]').value = password;
+    form.querySelector('[name="mqtt_topic"]').value = topic;
+    form.querySelector("button").innerText = "Update Gateway";
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function editMeter(id, gatewayId, code, name, sensorType) {
+    const form = document.querySelector('form[action="/devices/sensor/add"]');
+
+    form.action = "/devices/sensor/update";
+
+    if (!document.getElementById("configured_meter_edit_id")) {
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "configured_meter_id";
+        hidden.id = "configured_meter_edit_id";
+        form.appendChild(hidden);
+    }
+
+    document.getElementById("configured_meter_edit_id").value = id;
+    form.querySelector('[name="gateway_id"]').value = gatewayId;
+    form.querySelector('[name="code"]').value = code;
+    form.querySelector('[name="name"]').value = name;
+    form.querySelector('[name="sensor_type"]').value = sensorType;
+    form.querySelector("button").innerText = "Update Meter";
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function editTag(configuredTagId, configuredMeterId, lowLimit, highLimit) {
+    document.getElementById('tagForm').action = '/devices/tag/update';
+
+    tagSelect.value = configuredTagId;
+    meterSelect.value = configuredMeterId;
+
+    document.getElementById('low_limit').value = lowLimit;
+    document.getElementById('high_limit').value = highLimit;
+    document.getElementById('tagSubmitBtn').innerText = 'Update Tag';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+
+{% endblock %}

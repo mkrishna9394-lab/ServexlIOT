@@ -4,86 +4,136 @@ import time
 from datetime import datetime
 
 from app.core.database import SessionLocal
-from app.models import Gateway, Sensor, Tag, LiveValue, HistoricalValue, Alert
+from app.models import (
+    Gateway,
+    ConfiguredMeter,
+    ConfiguredTag,
+    LiveValue,
+    HistoricalValue,
+    Alert,
+)
 
 
 def process_payload(gateway_id: int, topic: str, payload: str):
     db = SessionLocal()
+
     try:
-        try:
-            data = json.loads(payload)
-        except Exception:
-            print("Invalid MQTT JSON:", payload)
-            return
+        data = json.loads(payload)
 
         gateway = db.query(Gateway).filter(Gateway.id == gateway_id).first()
         if not gateway:
             return
 
-        gateway.last_seen = datetime.utcnow()
+        gateway.last_seen = datetime.now()
 
-        tags = (
-            db.query(Tag)
-            .join(Sensor)
-            .filter(Sensor.gateway_id == gateway.id)
+        flat_data = {}
+
+        # Scenario 1: QIOT direct device format
+        # Topic: QIOT/.../v3/6/slot_values
+        # Payload: [{"slot_idx":6,"tags":[{"idx":0,"val":10}]}]
+        if isinstance(data, list):
+            base_topic = (
+                topic
+                .replace("/slot_values", "")
+                .replace("/slot_metadata", "")
+            )
+
+            for item in data:
+                if "tags" not in item:
+                    continue
+
+                for tag_item in item.get("tags", []):
+                    idx = tag_item.get("idx")
+
+                    if "val" in tag_item:
+                        flat_data[f"{base_topic}:{idx}"] = tag_item.get("val")
+
+        # Scenario 2: Gateway structured tag:value format
+        # Payload: {"kwh":123.45,"voltage":240}
+        elif isinstance(data, dict):
+            flat_data = data
+
+        configured_tags = (
+            db.query(ConfiguredTag)
+            .join(
+                ConfiguredMeter,
+                ConfiguredTag.configured_meter_id == ConfiguredMeter.id
+            )
+            .filter(
+                ConfiguredMeter.gateway_id == gateway.id,
+                ConfiguredTag.is_active == True,
+                ConfiguredMeter.is_active == True,
+            )
             .all()
         )
 
-        for tag in tags:
-            if tag.key not in data:
+        for configured_tag in configured_tags:
+            if configured_tag.key not in flat_data:
                 continue
 
             try:
-                val = float(data[tag.key])
+                val = float(flat_data[configured_tag.key])
             except Exception:
                 continue
 
-            live = db.query(LiveValue).filter(LiveValue.tag_id == tag.id).first()
+            live = (
+                db.query(LiveValue)
+                .filter(LiveValue.configured_tag_id == configured_tag.id)
+                .first()
+            )
+
             if not live:
-                live = LiveValue(tag_id=tag.id)
+                live = LiveValue(configured_tag_id=configured_tag.id)
 
             live.value = val
-            live.timestamp = datetime.utcnow()
+            live.timestamp = datetime.now()
             live.quality = "GOOD"
             db.add(live)
 
-            if getattr(tag, "log_enabled", True):
-                db.add(
-                    HistoricalValue(
-                        tag_id=tag.id,
-                        value=val,
-                        timestamp=live.timestamp,
-                        source="MQTT",
-                    )
+            db.add(
+                HistoricalValue(
+                    configured_tag_id=configured_tag.id,
+                    value=val,
+                    timestamp=live.timestamp,
+                    source="MQTT",
                 )
+            )
 
-            if tag.high_limit is not None and val > tag.high_limit:
+            if configured_tag.high_limit is not None and val > configured_tag.high_limit:
                 exists = (
                     db.query(Alert)
-                    .filter(Alert.tag_id == tag.id, Alert.status == "active")
+                    .filter(
+                        Alert.tag_id == configured_tag.id,
+                        Alert.status == "active",
+                    )
                     .first()
                 )
+
                 if not exists:
                     db.add(
                         Alert(
-                            tag_id=tag.id,
+                            tag_id=configured_tag.id,
                             severity="high",
-                            message=f"{tag.display_name} high limit crossed: {val}",
+                            message=f"{configured_tag.display_name} high limit crossed: {val}",
                         )
                     )
 
-            if tag.low_limit is not None and val < tag.low_limit:
+            if configured_tag.low_limit is not None and val < configured_tag.low_limit:
                 exists = (
                     db.query(Alert)
-                    .filter(Alert.tag_id == tag.id, Alert.status == "active")
+                    .filter(
+                        Alert.tag_id == configured_tag.id,
+                        Alert.status == "active",
+                    )
                     .first()
                 )
+
                 if not exists:
                     db.add(
                         Alert(
-                            tag_id=tag.id,
+                            tag_id=configured_tag.id,
                             severity="low",
-                            message=f"{tag.display_name} low limit crossed: {val}",
+                            message=f"{configured_tag.display_name} low limit crossed: {val}",
                         )
                     )
 
@@ -116,7 +166,10 @@ def run_gateway_worker(gateway_id: int):
 
     db.close()
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"iiot_{code}_{gateway_id}")
+    client = mqtt.Client(
+        mqtt.CallbackAPIVersion.VERSION2,
+        client_id=f"iiot_{code}_{gateway_id}"
+    )
 
     if username:
         client.username_pw_set(username, password)
@@ -151,14 +204,26 @@ def run_gateway_worker(gateway_id: int):
 
 def start_mqtt_worker():
     db = SessionLocal()
+
     try:
         gateways = db.query(Gateway).all()
+
         for gw in gateways:
             threading.Thread(
                 target=run_gateway_worker,
                 args=(gw.id,),
                 daemon=True,
             ).start()
+
             print(f"Started MQTT worker for gateway: {gw.code}")
+
     finally:
         db.close()
+
+
+def start_single_gateway_worker(gateway_id: int):
+    threading.Thread(
+        target=run_gateway_worker,
+        args=(gateway_id,),
+        daemon=True,
+    ).start()

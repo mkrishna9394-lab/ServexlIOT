@@ -1,1 +1,228 @@
-{% extends 'base.html' %}{% block content %}<h1>Reports</h1><div class="panel"><p>Hourly, daily, shift, MTD and custom reports can be extended from the HistoricalValue table.</p><a class="btn" href="/reports/export.xlsx">Download Excel Report</a></div>{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Reports</h1>
+
+<div class="panel">
+    <h2>Historical Data Filter</h2>
+
+    <form method="get" action="/reports">
+        <input type="hidden" name="run" value="1">
+
+        <label>Select Range</label>
+        <select name="range_type" id="range_type">
+            <option value="">Custom Date & Time</option>
+            <option value="1h" {% if filters.range_type == '1h' %}selected{% endif %}>Last 1 Hour</option>
+            <option value="24h" {% if filters.range_type == '24h' %}selected{% endif %}>Last 24 Hours</option>
+            <option value="7d" {% if filters.range_type == '7d' %}selected{% endif %}>Last 7 Days</option>
+            <option value="30d" {% if filters.range_type == '30d' %}selected{% endif %}>Last 30 Days</option>
+        </select>
+
+        <div class="two">
+            <div>
+                <label>Start Date & Time</label>
+                <input type="datetime-local" name="start_datetime" id="start_datetime" value="{{ filters.start_datetime }}">
+            </div>
+
+            <div>
+                <label>End Date & Time</label>
+                <input type="datetime-local" name="end_datetime" id="end_datetime" value="{{ filters.end_datetime }}">
+            </div>
+        </div>
+
+        <div class="three">
+            <div>
+                <label>Gateway</label>
+                <select name="gateway_id" id="gateway_id">
+                    <option value="">All Gateways</option>
+					{% for g in gateways %}
+					<option value="{{g.id}}" {% if filters.gateway_id|string == g.id|string %}selected{% endif %}>
+						{{g.code}}
+					</option>
+					{% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Meters</label>
+                <select name="configured_meter_id" id="configured_meter_id">
+					<option value="">All Meters</option>
+					{% for m in configured_meters %}
+					<option
+						value="{{m.id}}"
+						data-gateway="{{m.gateway_id}}"
+						{% if filters.configured_meter_id|string == m.id|string %}selected{% endif %}>
+						{{m.name}} - {{m.code}}
+					</option>
+					{% endfor %}
+				</select>
+            </div>
+
+            <div>
+                <label>Tag</label>
+                <select name="configured_tag_id" id="configured_tag_id">
+					<option value="">All Tags</option>
+					{% for t in configured_tags %}
+					<option
+						value="{{t.id}}"
+						data-meter="{{t.configured_meter_id}}"
+						{% if filters.configured_tag_id|string == t.id|string %}selected{% endif %}>
+						{{t.display_name}} - {{t.key}}
+					</option>
+					{% endfor %}
+				</select>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:15px;">
+			<button type="submit" style="flex:1;">
+				View Report
+			</button>
+
+			<a href="/reports"
+			   class="btn"
+			   style="flex:1;text-align:center;text-decoration:none;line-height:42px;">
+				Clear
+			</a>
+		</div>
+    </form>
+</div>
+
+{% if show_report %}
+<div class="panel">
+    <h2>Export</h2>
+
+    <a class="btn"
+       href="/reports/export.xlsx?range_type={{filters.range_type}}&start_datetime={{filters.start_datetime}}&end_datetime={{filters.end_datetime}}&gateway_id={{filters.gateway_id}}&sensor_id={{filters.configured_meter_id}}&tag_id={{filters.configured_tag_id}}">
+        Download Excel Report
+    </a>
+</div>
+
+<div class="panel">
+    <h2>Historical Data</h2>
+
+    <table>
+        <tr>
+            <th>Timestamp</th>
+            <th>Gateway</th>
+            <th>Meter</th>
+            <th>Tag</th>
+            <th>Value</th>
+            <th>Unit</th>
+            <th>Source</th>
+        </tr>
+
+        {% for hv, tag, sensor, gateway in rows %}
+        <tr>
+            <td>{{ hv.timestamp }}</td>
+            <td>{{ gateway.code }}</td>
+            <td>{{ sensor.name }}</td>
+            <td>{{ tag.display_name }}</td>
+            <td>{{ hv.value }}</td>
+            <td>{{ tag.unit }}</td>
+            <td>{{ hv.source }}</td>
+        </tr>
+        {% endfor %}
+
+        {% if not rows %}
+        <tr>
+            <td colspan="7">No records found.</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+{% endif %}
+
+{% if show_report and total_pages > 1 %}
+
+<div style="display:flex;justify-content:center;gap:10px;margin-top:20px;">
+
+    {% set base_url = '/reports?run=1&range_type=' ~ filters.range_type ~ '&start_datetime=' ~ filters.start_datetime ~ '&end_datetime=' ~ filters.end_datetime ~ '&gateway_id=' ~ filters.gateway_id ~ '&configured_meter_id=' ~ filters.configured_meter_id ~ '&configured_tag_id=' ~ filters.configured_tag_id %}
+
+    {% if page > 1 %}
+    <a class="btn"
+       style="width:auto;padding:10px 20px;"
+       href="{{ base_url }}&page={{ page - 1 }}">
+       Previous
+    </a>
+    {% endif %}
+
+    <span style="padding:12px 20px;font-weight:bold;">
+        Page {{ page }} of {{ total_pages }}
+    </span>
+
+    {% if page < total_pages %}
+    <a class="btn"
+       style="width:auto;padding:10px 20px;"
+       href="{{ base_url }}&page={{ page + 1 }}">
+       Next
+    </a>
+    {% endif %}
+
+</div>
+
+{% endif %}
+
+<script>
+const rangeSelect = document.getElementById("range_type");
+const startDate = document.getElementById("start_datetime");
+const endDate = document.getElementById("end_datetime");
+const gatewaySelect = document.getElementById("gateway_id");
+const sensorSelect = document.getElementById("configured_meter_id");
+const tagSelect = document.getElementById("configured_tag_id");
+
+function resetRangeOnDateChange() {
+    if (startDate.value || endDate.value) {
+        rangeSelect.value = "";
+    }
+}
+
+function filterSensors() {
+    const gatewayId = gatewaySelect.value;
+
+    Array.from(sensorSelect.options).forEach(option => {
+        if (option.value === "") {
+            option.hidden = false;
+            return;
+        }
+
+        option.hidden = gatewayId && option.dataset.gateway !== gatewayId;
+    });
+
+    sensorSelect.value = "";
+    filterTags();
+}
+
+function filterTags() {
+    const meterId = sensorSelect.value;
+
+    Array.from(tagSelect.options).forEach(option => {
+        if (option.value === "") {
+            option.hidden = false;
+            return;
+        }
+
+        option.hidden = meterId && option.dataset.meter !== meterId;
+    });
+
+    tagSelect.value = "";
+}
+
+startDate.addEventListener("change", resetRangeOnDateChange);
+endDate.addEventListener("change", resetRangeOnDateChange);
+
+rangeSelect.addEventListener("change", function () {
+    if (rangeSelect.value !== "") {
+        startDate.value = "";
+        endDate.value = "";
+    }
+});
+
+gatewaySelect.addEventListener("change", filterSensors);
+sensorSelect.addEventListener("change", filterTags);
+
+filterSensors();
+</script>
+
+{% endblock %}
