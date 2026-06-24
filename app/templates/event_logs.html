@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Event Log</h1>
+
+<div class="panel">
+    <table>
+        <tr>
+            <th>Date Time</th>
+            <th>User</th>
+            <th>Role</th>
+            <th>Module</th>
+            <th>Action</th>
+            <th>Details</th>
+        </tr>
+
+        {% for log in logs %}
+        <tr>
+            <td>{{ log.created_at }}</td>
+            <td>{{ log.user_name }}</td>
+            <td>{{ log.role }}</td>
+            <td>{{ log.module }}</td>
+            <td>{{ log.action }}</td>
+            <td>{{ log.details }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+{% if total_pages > 1 %}
+<div class="panel" style="text-align:center;">
+
+    {% if page > 1 %}
+    <a href="/event-logs?page={{ page-1 }}">
+        ← Previous
+    </a>
+    {% endif %}
+
+    <span style="margin:0 20px;">
+        Page {{ page }} of {{ total_pages }}
+    </span>
+
+    {% if page < total_pages %}
+    <a href="/event-logs?page={{ page+1 }}">
+        Next →
+    </a>
+    {% endif %}
+
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,1 +1,201 @@
-{% extends 'base.html' %}{% block content %}<h1>User Management</h1><form class="panel" method="post" action="/users/add"><input name="name" placeholder="Name"><input name="email" placeholder="Email"><input name="password" placeholder="Password"><select name="role_id">{% for r in roles %}<option value="{{r.id}}">{{r.name}}</option>{% endfor %}</select><select name="customer_id"><option value="">No customer</option>{% for c in customers %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}</select><button>Add User</button></form><div class="panel"><table>{% for u in users %}<tr><td>{{u.name}}</td><td>{{u.email}}</td><td>{{u.role.name if u.role else ''}}</td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>User Management</h1>
+
+<form class="panel" method="post" action="/users/add" id="userForm">
+    <h2 id="formTitle">Add User</h2>
+
+    <input type="hidden" name="user_id" id="user_id">
+
+    <input name="name" id="name" placeholder="Name" required>
+    <input name="email" id="email" placeholder="Email" required>
+    <input name="password" id="password" placeholder="Password" type="password">
+
+    <input name="phone" id="phone" placeholder="Phone">
+
+    <select name="role_id" id="role_id" required>
+        {% for r in roles %}
+        <option value="{{r.id}}">{{r.name}}</option>
+        {% endfor %}
+    </select>
+
+    <select name="customer_id" id="customer_id" onchange="fillCustomerDetails()">
+		<option value="">No customer</option>
+		{% for c in customers %}
+		<option
+			value="{{c.id}}"
+			data-name="{{c.name}}"
+			data-email="{{c.contact_email or ''}}"
+			data-phone="{{c.phone or ''}}">
+			{{c.name}}
+		</option>
+		{% endfor %}
+	</select>
+
+    <label>
+        <input type="checkbox" name="is_active" id="is_active" checked>
+        Active
+    </label>
+
+    <label>
+        <input type="checkbox" name="must_change_password" id="must_change_password">
+        Must Change Password
+    </label>
+
+    <button id="submitBtn">Add User</button>
+</form>
+
+<div class="panel">
+    <h2>Users</h2>
+
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Role</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Last Login</th>
+            <th>Password Expiry</th>
+            <th>Action</th>
+        </tr>
+
+        {% for u in users %}
+        <tr>
+            <td>{{u.id}}</td>
+            <td>{{u.name}}</td>
+            <td>{{u.email}}</td>
+            <td>{{u.phone or ''}}</td>
+            <td>{{u.role.name if u.role else ''}}</td>
+            <td>{{u.customer.name if u.customer else 'No customer'}}</td>
+
+            <td>
+                {% if u.is_active %}
+                <span style="color:green;font-weight:bold;">Active</span>
+                {% else %}
+                <span style="color:red;font-weight:bold;">Disabled</span>
+                {% endif %}
+            </td>
+
+            <td>{{u.last_login if u.last_login else '-'}}</td>
+            <td>{{u.password_expiry if u.password_expiry else '-'}}</td>
+
+            <td>
+                <div class="action-buttons">
+
+                    <button type="button" class="btn-edit"
+                        onclick="editUser(
+                            '{{u.id}}',
+                            '{{u.name}}',
+                            '{{u.email}}',
+                            '{{u.phone or ""}}',
+                            '{{u.role_id}}',
+                            '{{u.customer_id or ""}}',
+                            '{{1 if u.is_active else 0}}',
+                            '{{1 if u.must_change_password else 0}}'
+                        )">
+                        Edit
+                    </button>
+
+                    <button type="button" class="btn-edit"
+                        onclick="resetPassword('{{u.id}}')">
+                        Reset Password
+                    </button>
+
+                    {% if u.is_active %}
+                    <form method="post" action="/users/disable">
+                        <input type="hidden" name="user_id" value="{{u.id}}">
+                        <button type="submit" class="btn-delete"
+                            onclick="return confirm('Disable this user?')">
+                            Disable
+                        </button>
+                    </form>
+                    {% else %}
+                    <form method="post" action="/users/enable">
+                        <input type="hidden" name="user_id" value="{{u.id}}">
+                        <button type="submit" class="btn-edit">
+                            Enable
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <form method="post" action="/users/delete">
+                        <input type="hidden" name="user_id" value="{{u.id}}">
+                        <button type="submit" class="btn-delete"
+                            onclick="return confirm('Delete this user permanently?')">
+                            Delete
+                        </button>
+                    </form>
+
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<form method="post" action="/users/reset-password" id="resetPasswordForm" style="display:none;">
+    <input type="hidden" name="user_id" id="reset_user_id">
+    <input type="hidden" name="new_password" id="new_password">
+</form>
+
+<script>
+function editUser(id, name, email, phone, roleId, customerId, isActive, mustChangePassword) {
+    const form = document.getElementById("userForm");
+
+    form.action = "/users/update";
+
+    document.getElementById("formTitle").innerText = "Edit User";
+    document.getElementById("submitBtn").innerText = "Update User";
+
+    document.getElementById("user_id").value = id;
+    document.getElementById("name").value = name;
+    document.getElementById("email").value = email;
+    document.getElementById("phone").value = phone;
+    document.getElementById("role_id").value = roleId;
+    document.getElementById("customer_id").value = customerId;
+    document.getElementById("is_active").checked = isActive === "1";
+    document.getElementById("must_change_password").checked = mustChangePassword === "1";
+
+    document.getElementById("password").required = false;
+    document.getElementById("password").placeholder = "Leave blank while editing";
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+}
+
+function fillCustomerDetails() {
+    const customerSelect = document.getElementById("customer_id");
+    const selected = customerSelect.options[customerSelect.selectedIndex];
+
+    if (!selected || selected.value === "") {
+        return;
+    }
+
+    document.getElementById("name").value = selected.dataset.name || "";
+    document.getElementById("email").value = selected.dataset.email || "";
+    document.getElementById("phone").value = selected.dataset.phone || "";
+}
+
+function resetPassword(userId) {
+    const newPassword = prompt("Enter new password:");
+
+    if (!newPassword || newPassword.trim() === "") {
+        alert("Password is required.");
+        return;
+    }
+
+    document.getElementById("reset_user_id").value = userId;
+    document.getElementById("new_password").value = newPassword.trim();
+
+    document.getElementById("resetPasswordForm").submit();
+}
+</script>
+
+{% endblock %}

@@ -4,7 +4,11 @@
 
 <h1>Settings</h1>
 
+
+<!-- <form class="panel" method="post" action="/settings/save"> -->
+
 <form class="panel" method="post" action="/settings/save" enctype="multipart/form-data">
+
     <h2>Application Settings</h2>
 
     <label>Application Name</label>
@@ -24,6 +28,7 @@
 
     <label>Live Trend Points</label>
     <input name="live_trend_points" type="number" min="5" value="{{ settings.live_trend_points }}">
+
 
     <label>Top-left Logo</label>
     <input name="logo_file" type="file" accept="image/*">

@@ -16,6 +16,7 @@ from app.routers import (
     settings_router,
     diagnostics,
     mqtt_discovery,
+    event_logs,
 )
 from app.services.scheduler import start_scheduler
 from app.services.mqtt_worker import start_mqtt_worker
@@ -33,7 +34,6 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-
 for router in [
     auth.router,
     dashboard.router,
@@ -45,6 +45,7 @@ for router in [
     settings_router.router,
     diagnostics.router,
     mqtt_discovery.router,
+    event_logs.router,
 ]:
     app.include_router(router)
 

@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
-
+from app.services.event_logger import log_event
 from app.core.database import get_db
+import os
+import uuid
+from fastapi import File, UploadFile
 from app.core.templates import templates
 from app.core.deps import require_user
 from app.models import (
@@ -17,6 +20,23 @@ from app.models import (
 )
 
 router = APIRouter(prefix="/customers")
+
+UPLOAD_DIR = "app/static/uploads/customers"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+def save_customer_logo(file: UploadFile | None):
+    if not file or not file.filename:
+        return None
+
+    ext = os.path.splitext(file.filename)[1]
+    filename = f"{uuid.uuid4()}{ext}"
+    path = os.path.join(UPLOAD_DIR, filename)
+
+    with open(path, "wb") as f:
+        f.write(file.file.read())
+
+    return f"/static/uploads/customers/{filename}"
 
 
 @router.get("")
@@ -40,11 +60,24 @@ def index(
 def add(
     name: str = Form(...),
     contact_email: str = Form(""),
+    phone: str = Form(""),
+    address: str = Form(""),
+    logo: UploadFile = File(None),
     db: Session = Depends(get_db),
     user=Depends(require_user)
 ):
-    db.add(Customer(name=name, contact_email=contact_email))
+    logo_path = save_customer_logo(logo)
+
+    db.add(Customer(
+        name=name,
+        contact_email=contact_email,
+        phone=phone,
+        address=address,
+        logo_path=logo_path
+    ))
     db.commit()
+
+    log_event(db, user, "Customers", "Add Customer", f"Customer {name} added")
     return RedirectResponse("/customers", 303)
 
 
@@ -53,6 +86,9 @@ def update_customer(
     customer_id: int = Form(...),
     name: str = Form(...),
     contact_email: str = Form(""),
+    phone: str = Form(""),
+    address: str = Form(""),
+    logo: UploadFile = File(None),
     db: Session = Depends(get_db),
     user=Depends(require_user)
 ):
@@ -61,7 +97,15 @@ def update_customer(
     if customer:
         customer.name = name
         customer.contact_email = contact_email
+        customer.phone = phone
+        customer.address = address
+
+        logo_path = save_customer_logo(logo)
+        if logo_path:
+            customer.logo_path = logo_path
+
         db.commit()
+        log_event(db, user, "Customers", "Update Customer", f"Customer {customer.name} updated")
 
     return RedirectResponse("/customers", 303)
 
@@ -83,6 +127,8 @@ def delete_customer(
         db.delete(customer)
         db.commit()
 
+        log_event(db, user, "Customers", "Delete Customer", f"Customer deleted")
+
     return RedirectResponse("/customers", 303)
 
 
@@ -96,6 +142,9 @@ def add_site(
 ):
     db.add(Site(customer_id=customer_id, name=name, location=location))
     db.commit()
+
+    log_event(db, user, "Customers", "Add Site", f"Site {name} added")
+
     return RedirectResponse("/customers", 303)
 
 
@@ -115,6 +164,8 @@ def update_site(
         site.name = name
         site.location = location
         db.commit()
+
+        log_event(db, user, "Customers", "Update Site", f"Site {site.name} updated")
 
     return RedirectResponse("/customers", 303)
 
@@ -154,3 +205,5 @@ def delete_site_data(db: Session, site_id: int):
         db.delete(site)
 
     db.commit()
+    log_event(db, user, "Customers", "Delete Site", f"Site deleted")
+

@@ -62,7 +62,9 @@ def save(
     data_offline_seconds: str = Form(...),
     historical_retention_days: str = Form(...),
     live_trend_points: str = Form(...),
+
     logo_file: UploadFile | None = File(None),
+
     db: Session = Depends(get_db),
     user=Depends(require_user)
 ):
