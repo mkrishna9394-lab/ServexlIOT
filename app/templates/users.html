@@ -21,12 +21,18 @@
         {% endfor %}
     </select>
 
-    <select name="customer_id" id="customer_id">
-        <option value="">No customer</option>
-        {% for c in customers %}
-        <option value="{{c.id}}">{{c.name}}</option>
-        {% endfor %}
-    </select>
+    <select name="customer_id" id="customer_id" onchange="fillCustomerDetails()">
+		<option value="">No customer</option>
+		{% for c in customers %}
+		<option
+			value="{{c.id}}"
+			data-name="{{c.name}}"
+			data-email="{{c.contact_email or ''}}"
+			data-phone="{{c.phone or ''}}">
+			{{c.name}}
+		</option>
+		{% endfor %}
+	</select>
 
     <label>
         <input type="checkbox" name="is_active" id="is_active" checked>
@@ -162,6 +168,19 @@ function editUser(id, name, email, phone, roleId, customerId, isActive, mustChan
         top: 0,
         behavior: "smooth"
     });
+}
+
+function fillCustomerDetails() {
+    const customerSelect = document.getElementById("customer_id");
+    const selected = customerSelect.options[customerSelect.selectedIndex];
+
+    if (!selected || selected.value === "") {
+        return;
+    }
+
+    document.getElementById("name").value = selected.dataset.name || "";
+    document.getElementById("email").value = selected.dataset.email || "";
+    document.getElementById("phone").value = selected.dataset.phone || "";
 }
 
 function resetPassword(userId) {

@@ -6,10 +6,12 @@ from datetime import datetime
 from app.core.database import get_db
 from app.core.templates import templates
 from app.core.deps import require_user
-from app.models import Alert, Tag, Sensor, Gateway, Site
+from app.services.event_logger import log_event
+from app.models import Alert, ConfiguredTag, ConfiguredMeter, Gateway, Site
 
 
 router = APIRouter(prefix="/alerts")
+
 
 def is_super_admin(user):
     return user.role and user.role.name == "super_admin"
@@ -23,9 +25,9 @@ def index(
 ):
     query = (
         db.query(Alert)
-        .outerjoin(Tag, Alert.tag_id == Tag.id)
-        .outerjoin(Sensor, Tag.sensor_id == Sensor.id)
-        .outerjoin(Gateway, Sensor.gateway_id == Gateway.id)
+        .outerjoin(ConfiguredTag, Alert.tag_id == ConfiguredTag.id)
+        .outerjoin(ConfiguredMeter, ConfiguredTag.configured_meter_id == ConfiguredMeter.id)
+        .outerjoin(Gateway, ConfiguredMeter.gateway_id == Gateway.id)
         .outerjoin(Site, Gateway.site_id == Site.id)
     )
 
@@ -52,9 +54,9 @@ def ack(
 ):
     query = (
         db.query(Alert)
-        .outerjoin(Tag, Alert.tag_id == Tag.id)
-        .outerjoin(Sensor, Tag.sensor_id == Sensor.id)
-        .outerjoin(Gateway, Sensor.gateway_id == Gateway.id)
+        .outerjoin(ConfiguredTag, Alert.tag_id == ConfiguredTag.id)
+        .outerjoin(ConfiguredMeter, ConfiguredTag.configured_meter_id == ConfiguredMeter.id)
+        .outerjoin(Gateway, ConfiguredMeter.gateway_id == Gateway.id)
         .outerjoin(Site, Gateway.site_id == Site.id)
         .filter(Alert.id == alert_id)
     )
@@ -64,13 +66,12 @@ def ack(
 
     alert = query.first()
 
-
     if alert:
         alert.status = "acknowledged"
         alert.acknowledged_at = datetime.now()
         alert.acknowledged_by = user.id
         db.commit()
-        
+
         log_event(
             db,
             user,

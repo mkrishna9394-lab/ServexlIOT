@@ -1,20 +1,27 @@
 {% extends 'base.html' %}
+
 {% block content %}
-
-
-{% if user.role and user.role.name == 'super_admin' %}
-    <h1>Super Admin Dashboard</h1>
-{% else %}
-    <h1>Customer Dashboard</h1>
-{% endif %}
 
 <div class="page-hero">
     <div>
         <p class="eyebrow">Realtime IIoT Control Center</p>
-        <h1>Super Admin Dashboard</h1>
-        <p class="subtitle">Monitor customers, gateways, sensors, tags and alerts with live MQTT values and instant trend charts.</p>
+
+        {% if user.role and user.role.name == 'super_admin' %}
+            <h1>Super Admin Dashboard</h1>
+            <p class="subtitle">
+                Monitor customers, gateways, sensors, tags and alerts with live MQTT values and instant trend charts.
+            </p>
+        {% else %}
+            <h1>Customer Dashboard</h1>
+            <p class="subtitle">
+                Monitor your gateways, meters, tags and live MQTT values.
+            </p>
+        {% endif %}
     </div>
-    <span class="badge"><i class="fa-solid fa-bolt"></i> Live refresh 2s</span>
+
+    <span class="badge">
+        <i class="fa-solid fa-bolt"></i> Live refresh {{ dashboard_refresh_seconds }}s
+    </span>
 </div>
 
 
@@ -139,4 +146,5 @@ async function loadLiveValues() {
 loadLiveValues();
 setInterval(loadLiveValues, REFRESH_SECONDS * 1000);
 </script>
+
 {% endblock %}

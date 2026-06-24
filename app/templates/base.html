@@ -23,49 +23,32 @@
         </div>
 
 {% set role = user.role.name if user and user.role else '' %}
+<nav class="nav-menu">
 
-<aside>
-    <h2>IIoT Cloud</h2>
-
-    <a href="/dashboard">Dashboard</a>
+    <a href="/dashboard"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></a>
 
     {% if role == 'super_admin' %}
-        <a href="/customers">Customers/Sites</a>
-        <a href="/devices">Devices/Tags</a>
-        <a href="/reports">Reports</a>
-        <a href="/alerts">Alerts</a>
-        <a href="/users">Users</a>
-        <a href="/diagnostics">Diagnostics</a>
-        <a href="/settings">Settings</a>
+        <a href="/customers"><i class="fa-solid fa-building-user"></i><span>Customers / Sites</span></a>
+        <a href="/devices"><i class="fa-solid fa-microchip"></i><span>Devices / Tags</span></a>
+		<!-- <a href="/mqtt-discovery"><i class="fa-solid fa-satellite-dish"></i><span>MQTT Discovery</span></a> -->
+        <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
+        <a href="/alerts"><i class="fa-solid fa-triangle-exclamation"></i><span>Alerts</span></a>
+        <a href="/users"><i class="fa-solid fa-users-gear"></i><span>Users</span></a>
+        <a href="/diagnostics"><i class="fa-solid fa-stethoscope"></i><span>Diagnostics</span></a>
+        <a href="/settings"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
 		<a href="/event-logs">Event Log</a>
     {% elif role == 'admin' %}
-        <a href="/devices">Devices/Tags</a>
-        <a href="/reports">Reports</a>
-        <a href="/alerts">Alerts</a>
-        <a href="/diagnostics">Diagnostics</a>
+        <!-- <a href="/devices"><i class="fa-solid fa-microchip"></i><span>Devices / Tags</span></a> -->
+        <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
+        <a href="/alerts"><i class="fa-solid fa-triangle-exclamation"></i><span>Alerts</span></a>
+        <a href="/diagnostics"><i class="fa-solid fa-stethoscope"></i><span>Diagnostics</span></a>
 		<a href="/event-logs">Event Log</a>
     {% elif role == 'operator' %}
-        <a href="/reports">Reports</a>
-        <a href="/alerts">Alerts</a>
+        <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
+        <a href="/alerts"><i class="fa-solid fa-triangle-exclamation"></i><span>Alerts</span></a>
     {% elif role == 'viewer' %}
-        <a href="/reports">Reports</a>
+        <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
     {% endif %}
-
-    <a href="/logout">Logout</a>
-</aside>
-
-        <nav class="nav-menu">
-            <a href="/dashboard"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></a>
-            <a href="/customers"><i class="fa-solid fa-building-user"></i><span>Customers / Sites</span></a>
-            <a href="/devices"><i class="fa-solid fa-microchip"></i><span>Devices / Tags</span></a>
-            <a href="/mqtt-discovery"><i class="fa-solid fa-satellite-dish"></i><span>MQTT Discovery</span></a>
-            <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
-            <a href="/alerts"><i class="fa-solid fa-triangle-exclamation"></i><span>Alerts</span></a>
-            <a href="/users"><i class="fa-solid fa-users-gear"></i><span>Users</span></a>
-            <a href="/diagnostics"><i class="fa-solid fa-stethoscope"></i><span>Diagnostics</span></a>
-            <a href="/settings"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
-        </nav>
-
 
         <div class="sidebar-footer">
             <div class="live-dot"><span></span> Live monitoring</div>
@@ -74,10 +57,10 @@
 
     <main class="main-content">
         <header class="topbar">
-            <div class="search-box">
+            <!-- <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="search" placeholder="Search dashboard, devices, reports...">
-            </div>
+            </div> -->
             <select id="themeSelect" class="theme-select" title="Change theme">
                 <option value="aurora">Aurora</option>
                 <option value="ocean">Ocean</option>
@@ -88,12 +71,21 @@
                 <option value="graphite">Graphite</option>
             </select>
             <div class="user-chip">
-                <span>{{ (user.name[0] if user and user.name else 'S') }}</span>
-                <div>
-                    <b>{{ user.name if user else 'System' }}</b>
-                    <a href="/logout">Logout</a>
-                </div>
-            </div>
+				{% if user and user.customer and user.customer.logo_path %}
+					<img
+						src="{{ user.customer.logo_path }}"
+						alt="Customer Logo"
+						style="width:46px;height:46px;border-radius:14px;object-fit:cover;"
+					>
+				{% else %}
+					<span>{{ (user.name[0] if user and user.name else 'S') }}</span>
+				{% endif %}
+
+				<div>
+					<b>{{ user.name if user else 'System' }}</b>
+					<a href="/logout">Logout</a>
+				</div>
+			</div>
         </header>
 
         <section class="content-card">

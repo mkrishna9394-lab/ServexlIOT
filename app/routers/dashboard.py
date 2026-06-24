@@ -59,8 +59,19 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(requ
     meter_ids = [m.id for m in meters]
 
     tag_query = db.query(ConfiguredTag).filter(ConfiguredTag.is_active == True)
+
     if not is_super_admin(user):
         tag_query = tag_query.filter(ConfiguredTag.configured_meter_id.in_(meter_ids))
+
+    alert_query = (
+        db.query(Alert)
+        .join(ConfiguredTag, Alert.tag_id == ConfiguredTag.id)
+        .join(ConfiguredMeter, ConfiguredTag.configured_meter_id == ConfiguredMeter.id)
+        .filter(Alert.status == "active")
+    )
+
+    if not is_super_admin(user):
+        alert_query = alert_query.filter(ConfiguredMeter.gateway_id.in_(gateway_ids))
 
     stats = {}
 
@@ -71,7 +82,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(requ
         "gateways": gateway_query.count(),
         "meters": len(meters),
         "tags": tag_query.count(),
-        "active_alerts": db.query(Alert).filter(Alert.status == "active").count(),
+        "active_alerts": alert_query.count(),
     })
 
     return templates.TemplateResponse(

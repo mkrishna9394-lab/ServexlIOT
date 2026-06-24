@@ -6,7 +6,7 @@
 
 <div class="two">
 
-    <form class="panel" method="post" action="/customers/add" id="customerForm">
+    <form class="panel" method="post" action="/customers/add" id="customerForm" enctype="multipart/form-data">
         <h2>Customer Management</h2>
 
         <input type="hidden" name="customer_id" id="customer_id">
@@ -14,6 +14,12 @@
         <input name="name" id="customer_name" placeholder="Customer name">
 
         <input name="contact_email" id="customer_email" placeholder="Email">
+		
+		<input name="phone" id="customer_phone" placeholder="Phone number">
+		
+		<textarea name="address" id="customer_address" placeholder="Address"></textarea>
+		
+		<input type="file" name="logo" id="customer_logo" accept="image/*">
 
         <button id="customerBtn">Add Customer</button>
     </form>
@@ -44,16 +50,22 @@
     <table>
         <tr>
             <th>ID</th>
-            <th>Customer</th>
-            <th>Email</th>
-            <th>Action</th>
+			<th>Customer</th>
+			<th>Email</th>
+			<th>Phone</th>
+			<th>Address</th>
+			<th>Action</th>
         </tr>
 
         {% for c in customers %}
         <tr>
+			
+			</td>
             <td>{{c.id}}</td>
             <td>{{c.name}}</td>
-            <td>{{c.contact_email}}</td>
+			<td>{{c.contact_email}}</td>
+			<td>{{c.phone or ''}}</td>
+			<td>{{c.address or ''}}</td>
             <td>
                 <div class="action-buttons">
 
@@ -62,8 +74,10 @@
                         class="btn-edit"
                         onclick="editCustomer(
                             '{{c.id}}',
-                            `{{c.name}}`,
-                            `{{c.contact_email}}`
+							`{{c.name}}`,
+							`{{c.contact_email}}`,
+							`{{c.phone or ""}}`,
+							`{{c.address or ""}}`
                         )">
                         Edit
                     </button>
@@ -138,18 +152,17 @@
 </div>
 
 <script>
-function editCustomer(id, name, email) {
+function editCustomer(id, name, email, phone, address) {
     document.getElementById('customer_id').value = id;
     document.getElementById('customer_name').value = name;
     document.getElementById('customer_email').value = email;
+    document.getElementById('customer_phone').value = phone;
+    document.getElementById('customer_address').value = address;
 
     document.getElementById('customerForm').action = '/customers/update';
     document.getElementById('customerBtn').innerText = 'Update Customer';
 
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function editSite(id, customerId, name, location) {

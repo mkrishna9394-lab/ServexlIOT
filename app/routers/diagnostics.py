@@ -181,7 +181,12 @@ def index(request: Request, db: Session = Depends(get_db), user=Depends(require_
                 .filter(HistoricalValue.configured_tag_id.in_(configured_tag_ids))
                 .count()
             ),
-            "active_alerts": db.query(Alert).filter(Alert.status == "active").count(),
+            "active_alerts": (
+                db.query(Alert)
+                .filter(Alert.status == "active")
+                .filter(Alert.tag_id.in_(configured_tag_ids))
+                .count()
+            ),
             "gateway_rows": gateway_rows,
             "health_logs": health_logs,
             "offline_seconds": offline_seconds,
