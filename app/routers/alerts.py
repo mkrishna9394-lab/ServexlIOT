@@ -8,8 +8,8 @@ from app.core.templates import templates
 from app.core.deps import require_user
 from app.models import Alert, Tag, Sensor, Gateway, Site
 
-router = APIRouter(prefix="/alerts")
 
+router = APIRouter(prefix="/alerts")
 
 def is_super_admin(user):
     return user.role and user.role.name == "super_admin"
@@ -63,6 +63,7 @@ def ack(
         query = query.filter(Site.customer_id == user.customer_id)
 
     alert = query.first()
+
 
     if alert:
         alert.status = "acknowledged"

@@ -18,7 +18,6 @@ from app.services.mqtt_worker import start_single_gateway_worker
 
 router = APIRouter(prefix="/devices")
 
-
 def is_super_admin(user):
     return user.role and user.role.name == "super_admin"
 
@@ -218,6 +217,7 @@ def gateway(
                     ))
 
         db.commit()
+
         log_event(db, user, "Devices", "Add Gateway", f"Gateway {gateway_obj.code} added/updated")
 
     except Exception as e:
@@ -262,6 +262,7 @@ def sensor_add(
             ))
 
         db.commit()
+
         log_event(db, user, "Devices", "Add Meter", f"Configured meter {sensor.name}")
 
     return RedirectResponse("/devices", 303)
@@ -286,6 +287,7 @@ def sensor_update(
         meter.sensor_type = sensor_type
         meter.is_active = True
         db.commit()
+
         log_event(db, user, "Devices", "Update Meter", f"Updated meter {meter.name}")
 
     return RedirectResponse("/devices", 303)
@@ -319,6 +321,7 @@ def sensor_delete(
 
         db.delete(meter)
         db.commit()
+
         log_event(db, user, "Devices", "Delete Meter", f"Deleted meter {meter.name}. Reason: {reason}")
 
     return RedirectResponse("/devices", 303)
@@ -364,6 +367,7 @@ def tag_add(
                 ))
 
         db.commit()
+
         log_event(db, user, "Devices", "Add Tag", f"Configured tag {tag.display_name}")
 
     return RedirectResponse("/devices", 303)
@@ -434,6 +438,7 @@ def gateway_update(
         gw.mqtt_password = mqtt_password
         gw.mqtt_topic = mqtt_topic
         db.commit()
+
         log_event(db, user, "Devices", "Update Gateway", f"Updated gateway {gw.code}")
 
     return RedirectResponse("/devices", 303)
@@ -464,6 +469,7 @@ def gateway_reassign(
 
         gw.site_id = site_id
         db.commit()
+
         log_event(db, user, "Devices", "Reassign Gateway", f"Gateway {gw.code} reassigned to {new_site.name}")
 
     return RedirectResponse("/devices", 303)
@@ -509,6 +515,7 @@ def gateway_delete(
 
         db.delete(gw)
         db.commit()
+
         log_event(db, user, "Devices", "Delete Gateway", f"Deleted gateway {gw.code}. Reason: {reason}")
 
     return RedirectResponse("/devices", 303)

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
+
 from app.services.event_logger import log_event
 from app.core.database import get_db
 from app.core.templates import templates
@@ -12,7 +13,6 @@ from app.core.deps import require_user
 from app.models import HistoricalValue, ConfiguredTag, ConfiguredMeter, Gateway, Site
 
 router = APIRouter(prefix="/reports")
-
 
 def is_super_admin(user):
     return user.role and user.role.name == "super_admin"
@@ -259,6 +259,7 @@ def export(
         "Unit",
         "Source"
     ]
+
     ws.append(headers)
 
     header_fill = PatternFill("solid", fgColor="0B5E7A")
@@ -288,6 +289,7 @@ def export(
     bio = BytesIO()
     wb.save(bio)
     bio.seek(0)
+
     
     log_event(db, user, "Reports", "Export Excel", "Historical report exported")
 

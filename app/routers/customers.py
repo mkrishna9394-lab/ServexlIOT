@@ -45,7 +45,9 @@ def add(
 ):
     db.add(Customer(name=name, contact_email=contact_email))
     db.commit()
+
     log_event(db, user, "Customers", "Add Customer", f"Customer {name} added")
+
     return RedirectResponse("/customers", 303)
 
 
@@ -63,7 +65,9 @@ def update_customer(
         customer.name = name
         customer.contact_email = contact_email
         db.commit()
+
         log_event(db, user, "Customers", "Update Customer", f"Customer {customer.name} updated")
+
 
     return RedirectResponse("/customers", 303)
 
@@ -84,6 +88,7 @@ def delete_customer(
     if customer:
         db.delete(customer)
         db.commit()
+
         log_event(db, user, "Customers", "Delete Customer", f"Customer deleted")
 
     return RedirectResponse("/customers", 303)
@@ -99,7 +104,9 @@ def add_site(
 ):
     db.add(Site(customer_id=customer_id, name=name, location=location))
     db.commit()
+
     log_event(db, user, "Customers", "Add Site", f"Site {name} added")
+
     return RedirectResponse("/customers", 303)
 
 
@@ -119,6 +126,7 @@ def update_site(
         site.name = name
         site.location = location
         db.commit()
+
         log_event(db, user, "Customers", "Update Site", f"Site {site.name} updated")
 
     return RedirectResponse("/customers", 303)
@@ -160,3 +168,4 @@ def delete_site_data(db: Session, site_id: int):
 
     db.commit()
     log_event(db, user, "Customers", "Delete Site", f"Site deleted")
+

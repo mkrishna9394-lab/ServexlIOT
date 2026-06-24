@@ -45,8 +45,10 @@ def get_int_setting(db: Session, key: str, default: int):
     setting = db.query(SystemSetting).filter(SystemSetting.key == key).first()
     try:
         return int(setting.value) if setting else default
+
     except Exception:
         return default
+
 
 
 def format_duration(seconds):

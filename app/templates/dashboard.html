@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-
 {% block content %}
+
 
 {% if user.role and user.role.name == 'super_admin' %}
     <h1>Super Admin Dashboard</h1>
@@ -8,18 +8,51 @@
     <h1>Customer Dashboard</h1>
 {% endif %}
 
+<div class="page-hero">
+    <div>
+        <p class="eyebrow">Realtime IIoT Control Center</p>
+        <h1>Super Admin Dashboard</h1>
+        <p class="subtitle">Monitor customers, gateways, sensors, tags and alerts with live MQTT values and instant trend charts.</p>
+    </div>
+    <span class="badge"><i class="fa-solid fa-bolt"></i> Live refresh 2s</span>
+</div>
+
+
 <div class="grid">
+    {% set icons = ['fa-building','fa-server','fa-gauge-high','fa-tags','fa-bell'] %}
     {% for k, v in stats.items() %}
     <div class="card">
+        <div class="stat-icon"><i class="fa-solid {{ icons[loop.index0 % icons|length] }}"></i></div>
         <span>{{ k|replace('_',' ')|title }}</span>
         <strong>{{ v }}</strong>
     </div>
     {% endfor %}
 </div>
 
-<section class="panel">
-    <h2>Live Values</h2>
 
+<section class="live-showcase">
+    <div class="pulse-orb">
+        <span></span><span></span><span></span>
+        <i class="fa-solid fa-wifi"></i>
+    </div>
+    <div>
+        <p class="eyebrow">Factory Pulse</p>
+        <h2>Live trends that move with your machines</h2>
+        <p class="subtitle">Animated sparklines highlight live process values, sudden changes and device activity so operators can notice issues faster.</p>
+    </div>
+    <div class="mini-signal">
+        <em></em><em></em><em></em><em></em><em></em><em></em><em></em>
+    </div>
+</section>
+
+<section class="panel live-panel">
+    <div class="panel-header">
+        <div>
+            <h2><i class="fa-solid fa-wave-square"></i> Live Values & Attention Trends</h2>
+            <p class="subtitle">Latest sensor value and sparkline trend for each configured tag.</p>
+        </div>
+        <span class="badge" id="liveStatus">Connecting...</span>
+    </div>
     <table>
         <thead>
             <tr>
@@ -29,9 +62,7 @@
                 <th>Live Trend</th>
             </tr>
         </thead>
-        <tbody id="liveTableBody">
-            
-        </tbody>
+        <tbody id="liveTableBody"></tbody>
     </table>
 </section>
 
@@ -41,32 +72,30 @@ const MAX_POINTS = {{ live_trend_points }};
 
 let historyData = {};
 let chartInstances = {};
-
-function safeId(value) {
-    return String(value).replace(/[^a-zA-Z0-9_]/g, "_");
+function safeId(value) { return String(value).replace(/[^a-zA-Z0-9_]/g, "_"); }
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function gradientFill(canvas){
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 0, 70);
+    g.addColorStop(0, cssVar('--primary') + '55');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    return g;
 }
-
 async function loadLiveValues() {
     try {
         const response = await fetch('/api/live-values');
         const data = await response.json();
-
         const tbody = document.getElementById('liveTableBody');
-
+        document.getElementById('liveStatus').innerHTML = '<i class="fa-solid fa-circle-check"></i> Online';
         if (!data.length) {
             tbody.innerHTML = '<tr><td colspan="4">No live values available</td></tr>';
             return;
         }
-
         data.forEach(row => {
             const key = `tag_${row.tag_id}`;
             const rowId = `row_${safeId(row.tag_id)}`;
             const canvasId = `trend_${safeId(row.tag_id)}`;
-
-            if (!historyData[key]) {
-                historyData[key] = [];
-            }
-
+            if (!historyData[key]) historyData[key] = [];
             historyData[key].push(Number(row.value));
 
             if (historyData[key].length > MAX_POINTS) {
@@ -74,63 +103,35 @@ async function loadLiveValues() {
             }
 
             let tr = document.getElementById(rowId);
-
             if (!tr) {
                 tr = document.createElement('tr');
                 tr.id = rowId;
-
                 tr.innerHTML = `
                     <td>${row.meter_name}</td>
                     <td>${row.tag_name}</td>
-                    <td id="${rowId}_value">${row.value}</td>
-                    <td style="width:160px;">
-                        <div style="width:140px;height:38px;">
-                            <canvas id="${canvasId}"></canvas>
-                        </div>
-                    </td>
-                `;
-
+                    <td id="${rowId}_value"><span class="value-pill pulse-value"><i class="fa-solid fa-circle"></i>${row.value}</span></td>
+                    <td class="trend-cell"><div class="trend-box"><canvas id="${canvasId}"></canvas></div></td>`;
                 tbody.appendChild(tr);
             } else {
-                document.getElementById(`${rowId}_value`).innerText = row.value;
+                document.getElementById(`${rowId}_value`).innerHTML = `<span class="value-pill"><i class="fa-solid fa-circle"></i>${row.value}</span>`;
             }
-
             const canvas = document.getElementById(canvasId);
-
             if (!chartInstances[key]) {
                 chartInstances[key] = new Chart(canvas, {
                     type: 'line',
-                    data: {
-                        labels: historyData[key].map((_, i) => i + 1),
-                        datasets: [{
-                            data: historyData[key],
-                            borderWidth: 2,
-                            tension: 0.4,
-                            pointRadius: 0
-                        }]
-                    },
-                    options: {
-                        animation: { duration: 500 },
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: { enabled: false }
-                        },
-                        scales: {
-                            x: { display: false },
-                            y: { display: false }
-                        }
-                    }
+                    data: { labels: historyData[key].map((_, i) => i + 1), datasets: [{ data: historyData[key], borderWidth: 3, tension: 0.42, pointRadius: 0, borderColor: cssVar('--primary'), backgroundColor: gradientFill(canvas), fill: true }] },
+                    options: { animation: { duration: 450 }, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } }
                 });
             } else {
                 chartInstances[key].data.labels = historyData[key].map((_, i) => i + 1);
                 chartInstances[key].data.datasets[0].data = historyData[key];
+                chartInstances[key].data.datasets[0].borderColor = cssVar('--primary');
+                chartInstances[key].data.datasets[0].backgroundColor = gradientFill(canvas);
                 chartInstances[key].update('none');
             }
         });
-
     } catch (err) {
+        document.getElementById('liveStatus').innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Offline';
         console.error('Live update error:', err);
     }
 }
@@ -138,5 +139,4 @@ async function loadLiveValues() {
 loadLiveValues();
 setInterval(loadLiveValues, REFRESH_SECONDS * 1000);
 </script>
-
 {% endblock %}

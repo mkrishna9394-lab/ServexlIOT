@@ -15,12 +15,16 @@
         <strong>{{ mqtt_worker_status }}</strong>
     </div>
 
+
     {% if is_super_admin %}
+
     <div class="card">
         <span>Scheduler</span>
         <strong>{{ scheduler_status }}</strong>
     </div>
+
     {% endif %}
+
 
     <div class="card">
         <span>Gateways</span>
@@ -64,12 +68,16 @@
         <strong>{{ total_live_values }}</strong>
     </div>
 
+
     {% if is_super_admin %}
+
     <div class="card">
         <span>Historical Records</span>
         <strong>{{ total_historical_values }}</strong>
     </div>
+
     {% endif %}
+
 
     <div class="card">
         <span>Active Alerts</span>
@@ -114,11 +122,13 @@
         </tr>
         {% endfor %}
 
+
         {% if not gateway_rows %}
         <tr>
             <td colspan="7">No gateways found for this customer.</td>
         </tr>
         {% endif %}
+
     </table>
 </div>
 
@@ -137,6 +147,7 @@
         <tr>
             <td>{{ log.created_at }}</td>
             <td>{{ log.gateway_code }}</td>
+
             <td>
                 {% if log.status == 'Online' %}
                     <span style="color:green;font-weight:bold;">Online</span>
@@ -153,6 +164,7 @@
             <td colspan="4">No gateway history found for this customer.</td>
         </tr>
         {% endif %}
+
     </table>
 </div>
 

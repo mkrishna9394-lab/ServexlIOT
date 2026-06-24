@@ -12,7 +12,6 @@ from app.models import (
 
 router = APIRouter()
 
-
 def is_super_admin(user):
     return user.role and user.role.name == "super_admin"
 
