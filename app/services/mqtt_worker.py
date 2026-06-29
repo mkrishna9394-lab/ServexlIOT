@@ -29,6 +29,7 @@ def process_payload(gateway_id: int, topic: str, payload: str):
         gateway.last_seen = datetime.now()
 
         flat_data = {}
+        current_sensor_id = None
 
         # Scenario 1: QIOT slot_values format
         if isinstance(data, list):
@@ -101,12 +102,14 @@ def process_payload(gateway_id: int, topic: str, payload: str):
 
                     flat_data[key] = value
                 db.commit()
+                
+                current_sensor_id = meter.id
 
             # Scenario 3: normal JSON key:value
             else:
                 flat_data = data
 
-        configured_tags = (
+        configured_tags_query = (
             db.query(ConfiguredTag)
             .join(ConfiguredMeter, ConfiguredTag.configured_meter_id == ConfiguredMeter.id)
             .filter(
@@ -114,8 +117,14 @@ def process_payload(gateway_id: int, topic: str, payload: str):
                 ConfiguredTag.is_active == True,
                 ConfiguredMeter.is_active == True,
             )
-            .all()
         )
+
+        if current_sensor_id:
+            configured_tags_query = configured_tags_query.filter(
+                ConfiguredMeter.sensor_id == current_sensor_id
+            )
+
+        configured_tags = configured_tags_query.all()
 
         for configured_tag in configured_tags:
             if configured_tag.key not in flat_data:
