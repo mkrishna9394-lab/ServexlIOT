@@ -9,45 +9,40 @@
     <form class="panel" method="post" action="/devices/gateway/add">
         <h2>Gateway</h2>
 
-        <select name="site_id">
-            {% for s in sites %}
+        <label>Select Site</label>
+		<select name="site_id" required>
+            <option value="">Select Site</option>
+			{% for s in sites %}
             <option value="{{s.id}}">{{s.name}}</option>
             {% endfor %}
         </select>
 
         <input name="code" placeholder="Gateway code" required>
-        <input name="mqtt_host" placeholder="MQTT Host">
-        <input name="mqtt_port" placeholder="MQTT Port" value="1883">
-        <input name="mqtt_username" placeholder="MQTT Username">
-        <input name="mqtt_password" placeholder="MQTT Password" type="password">
-        <input name="mqtt_topic" placeholder="MQTT Topic">
+        <input name="mqtt_host" placeholder="MQTT Host" required>
+        <input name="mqtt_port" placeholder="MQTT Port" value="" required>
+        <input name="mqtt_username" placeholder="MQTT Username" >
+        <input name="mqtt_password" placeholder="MQTT Password" type="password" >
+        <input name="mqtt_topic" placeholder="MQTT Topic" required>
 
         <button>Add Gateway</button>
     </form>
 
-    <form class="panel" method="post" action="/devices/sensor/add">
+    <form class="panel" method="post" action="/devices/sensor/add" id="meterForm">
 		<h2>Meters</h2>
 
-		<select name="gateway_id" id="meter_gateway_id">
+		<label>Select Gateway ID</label>
+		<select name="gateway_id" id="meter_gateway_id" required>
+			<option value="">Select Gateway ID</option>
 			{% for g in gateways %}
 			<option value="{{g.id}}">{{g.code}}</option>
 			{% endfor %}
 		</select>
 
-		<select name="sensor_id" id="meter_name" required>
-			<option value="">Select Meter</option>
-			{% for s in sensors %}
-			<option value="{{s.id}}"
-					data-gateway="{{s.gateway_id}}"
-					data-code="{{s.code}}"
-					data-name="{{s.name}}"
-					data-type="{{s.sensor_type}}">
-				{{s.name}} - {{s.code}}
-			</option>
-			{% endfor %}
-		</select>
+		<label>Select Meters</label>
+		<div id="meter_container" class="selection-scroll">
+</div>
 
-		<input name="sensor_type" placeholder="Meter Type" value="">
+		<input name="sensor_type" placeholder="Meter Type" value="MQTT_METER">
 
 		<button>Add Meter</button>
 	</form>
@@ -56,7 +51,7 @@
         <h2>Configure Tag</h2>
 
         <select id="tag_gateway_filter">
-            <option value="">Select Gateway</option>
+            <option value="">Select Gateway ID</option>
             {% for g in gateways %}
             <option value="{{g.id}}">{{g.code}}</option>
             {% endfor %}
@@ -71,22 +66,42 @@
             {% endfor %}
         </select>
 
-        <div id="tag_container" style="height:250px;overflow-y:auto;border:1px solid #ccc;padding:10px;border-radius:6px;">
+        <div id="tag_container" class="selection-scroll">
 			{% for t in tags %}
-			<label class="tag-item"
-				   data-sensor="{{t.sensor_id}}"
-				   style="display:flex;align-items:center;gap:10px;padding:8px 4px;">
+			<div class="tag-item responsive-tag-item"
+				 data-sensor="{{t.sensor_id}}"
+				 data-tag-id="{{t.id}}"
+				 data-configured="{{ '1' if configured_tags|selectattr('tag_id', 'equalto', t.id)|list else '0' }}"
+				 style="display:none;grid-template-columns:28px 1.2fr 1fr 0.7fr;gap:10px;align-items:center;padding:8px 4px;">
+
 				<input type="checkbox"
 					   name="tag_ids"
 					   value="{{t.id}}"
 					   style="width:18px;height:18px;margin:0;">
+
 				<span>{{t.display_name}} - {{t.unit}}</span>
-			</label>
+
+				<input name="alias_{{t.id}}"
+					   placeholder="Alias"
+					   value="">
+
+				<input name="unit_{{t.id}}"
+					   placeholder="Unit"
+					   value="">
+			</div>
 			{% endfor %}
 		</div>
 
-        <input name="low_limit" id="low_limit" placeholder="Low limit">
-        <input name="high_limit" id="high_limit" placeholder="High limit">
+		<select name="tag_type" id="tag_type" required>
+			<option value="">Select Tag Type</option>
+			<option value="Analog Tag">Analog Tag</option>
+			<option value="Digital Tag">Digital Tag</option>
+			<option value="Counter Tag">Counter Tag</option>
+			<option value="String Tag">String Tag</option>
+		</select>
+
+		<input name="low_limit" id="low_limit" placeholder="Low limit">
+		<input name="high_limit" id="high_limit" placeholder="High limit">
 
         <button id="tagSubmitBtn">Add Tag</button>
     </form>
@@ -203,7 +218,7 @@
             <td>
                 <div class="action-buttons">
                     <button type="button" class="btn-edit"
-                        onclick="editMeter('{{s.id}}','{{s.gateway_id}}','{{s.code}}','{{s.name}}','{{s.sensor_type}}')">
+                        onclick="editMeter('{{s.id}}','{{s.gateway_id}}','{{s.sensor_id}}',`{{s.name}}`,'{{s.sensor_type}}')">
                         Edit
                     </button>
 
@@ -231,6 +246,7 @@
             <th>Key</th>
             <th>Name</th>
             <th>Unit</th>
+			<th>Tag Type</th>
             <th>Limits</th>
             <th>Configured</th>
             <th>Action</th>
@@ -243,14 +259,24 @@
             <td>{{t.key}}</td>
             <td>{{t.display_name}}</td>
             <td>{{t.unit}}</td>
+			<td>{{t.tag_type or '-'}}</td>
             <td>{{t.low_limit}} - {{t.high_limit}}</td>
             <td><span style="color:green;font-weight:bold;">Yes</span></td>
             <td>
                 <div class="action-buttons">
                     <button type="button" class="btn-edit"
-                        onclick="editTag('{{t.id}}','{{t.configured_meter_id}}','{{t.low_limit if t.low_limit is not none else ""}}','{{t.high_limit if t.high_limit is not none else ""}}')">
-                        Edit
-                    </button>
+						onclick="editTag(
+							'{{t.id}}',
+							'{{t.tag_id}}',
+							'{{t.configured_meter_id}}',
+							`{{t.display_name}}`,
+							`{{t.unit or ""}}`,
+							`{{t.tag_type or "Analog Tag"}}`,
+							'{{t.low_limit if t.low_limit is not none else ""}}',
+							'{{t.high_limit if t.high_limit is not none else ""}}'
+						)">
+						Edit
+					</button>
 
                     <form method="post" action="/devices/tag/delete">
                         <input type="hidden" name="configured_tag_id" value="{{t.id}}">
@@ -266,8 +292,8 @@
 </div>
 {% endif %}
 
-<div id="gatewayHistoryModal" style="display:none;position:fixed;inset:0;background:#0008;z-index:9999;">
-    <div class="panel" style="width:80%;margin:60px auto;background:white;">
+<div id="gatewayHistoryModal" class="app-modal" style="display:none;">
+    <div class="panel app-modal-dialog">
         <h2>Gateway Assignment History</h2>
 
         <table>
@@ -371,21 +397,59 @@ function closeGatewayHistory() {
     document.getElementById("gatewayHistoryModal").style.display = "none";
 }
 
-function filterMeterNames() {
-    if (!meterGatewaySelect || !meterNameSelect) return;
+async function filterMeterNames() {
+    const gatewayId = String(document.getElementById("meter_gateway_id").value || "");
+    const container = document.getElementById("meter_container");
 
-    const gatewayId = meterGatewaySelect.value;
+    container.innerHTML = "";
 
-    Array.from(meterNameSelect.options).forEach(option => {
-        if (option.value === "") {
-            option.hidden = false;
+    if (!gatewayId) {
+        container.innerHTML = "<p>Please select gateway.</p>";
+        return;
+    }
+
+    try {
+        const response = await fetch(`/devices/api/sensors/${gatewayId}`);
+        const sensors = await response.json();
+
+        if (!sensors.length) {
+            container.innerHTML = "<p>No meters found for this gateway yet.</p>";
             return;
         }
 
-        option.hidden = gatewayId && option.dataset.gateway !== gatewayId;
-    });
+        sensors.forEach(s => {
+            const div = document.createElement("div");
+            div.className = "meter-item";
+            div.dataset.gateway = gatewayId;
+            div.dataset.sensorId = s.id;
+            div.dataset.configured = String(s.configured);
 
-    meterNameSelect.value = "";
+            div.style.display = "grid";
+            div.style.gridTemplateColumns = "28px 1.2fr 1fr";
+            div.style.gap = "10px";
+            div.style.alignItems = "center";
+            div.style.padding = "8px 4px";
+
+            div.innerHTML = `
+                <input type="checkbox"
+                       name="sensor_ids"
+                       value="${s.id}"
+                       style="width:18px;height:18px;margin:0;">
+
+                <span>${s.name} - ${s.code}</span>
+
+                <input name="meter_alias_${s.id}"
+                       placeholder="Alias"
+                       value="">
+            `;
+
+            container.appendChild(div);
+        });
+
+    } catch (err) {
+        container.innerHTML = "<p>Failed to load meters.</p>";
+        console.error(err);
+    }
 }
 
 function filterConfiguredMetersByGateway() {
@@ -423,15 +487,17 @@ function filterTagsByConfiguredMeter() {
     document.querySelectorAll(".tag-item").forEach(item => {
         item.style.display =
             item.dataset.sensor === sensorId
-                ? "block"
+                ? "grid"
                 : "none";
     });
 }
 
-if (meterGatewaySelect) {
-    meterGatewaySelect.addEventListener("change", filterMeterNames);
-    filterMeterNames();
-}
+document.addEventListener("DOMContentLoaded", function () {
+    if (meterGatewaySelect) {
+        meterGatewaySelect.addEventListener("change", filterMeterNames);
+        filterMeterNames();
+    }
+});
 
 tagGatewayFilter.addEventListener("change", filterConfiguredMetersByGateway);
 meterSelect.addEventListener("change", filterTagsByConfiguredMeter);
@@ -476,8 +542,8 @@ function editGateway(id, siteId, code, host, port, username, password, topic) {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function editMeter(id, gatewayId, code, name, sensorType) {
-    const form = document.querySelector('form[action="/devices/sensor/add"]');
+function editMeter(configuredMeterId, gatewayId, sensorId, meterName, sensorType) {
+    const form = document.getElementById("meterForm");
 
     form.action = "/devices/sensor/update";
 
@@ -489,28 +555,112 @@ function editMeter(id, gatewayId, code, name, sensorType) {
         form.appendChild(hidden);
     }
 
-    document.getElementById("configured_meter_edit_id").value = id;
-    form.querySelector('[name="gateway_id"]').value = gatewayId;
-    form.querySelector('[name="code"]').value = code;
-    form.querySelector('[name="name"]').value = name;
+    document.getElementById("configured_meter_edit_id").value = configuredMeterId;
+    document.getElementById("meter_gateway_id").value = gatewayId;
     form.querySelector('[name="sensor_type"]').value = sensorType;
+
+    filterMeterNames();
+
+    document.querySelectorAll(".meter-item").forEach(item => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        const aliasInput = item.querySelector(`input[name="meter_alias_${sensorId}"]`);
+
+        if (item.dataset.sensorId === sensorId) {
+            item.style.display = "grid";
+            cb.checked = true;
+            if (aliasInput) aliasInput.value = meterName;
+        } else {
+            cb.checked = false;
+        }
+    });
+
     form.querySelector("button").innerText = "Update Meter";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function editTag(configuredTagId, sourceTagId, configuredMeterId, displayName, unit, tagType, lowLimit, highLimit) {
+    const form = document.getElementById("tagForm");
+
+    form.action = "/devices/tag/update";
+
+    if (!document.getElementById("edit_configured_tag_id")) {
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "configured_tag_id";
+        hidden.id = "edit_configured_tag_id";
+        form.appendChild(hidden);
+    }
+
+    document.getElementById("edit_configured_tag_id").value = configuredTagId;
+    document.getElementById("configured_meter_id").value = configuredMeterId;
+    document.getElementById("tag_type").value = tagType;
+    document.getElementById("low_limit").value = lowLimit;
+    document.getElementById("high_limit").value = highLimit;
+    document.getElementById("tagSubmitBtn").innerText = "Update Tag";
+
+    filterTagsByConfiguredMeter();
+
+    document.querySelectorAll(".tag-item").forEach(item => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        const aliasInput = item.querySelector(`input[name="alias_${sourceTagId}"]`);
+        const unitInput = item.querySelector(`input[name="unit_${sourceTagId}"]`);
+
+        if (item.dataset.tagId === sourceTagId) {
+            item.style.display = "grid";
+            cb.checked = true;
+
+            if (aliasInput) aliasInput.value = displayName;
+            if (unitInput) unitInput.value = unit;
+        } else {
+            cb.checked = false;
+        }
+    });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function editTag(configuredTagId, configuredMeterId, lowLimit, highLimit) {
-    document.getElementById('tagForm').action = '/devices/tag/update';
+document.getElementById("meterForm").addEventListener("submit", function(e) {
+    if (this.action.includes("/sensor/update")) return;
 
-    tagSelect.value = configuredTagId;
-    meterSelect.value = configuredMeterId;
+    const checked = document.querySelectorAll('.meter-item input[type="checkbox"]:checked');
 
-    document.getElementById('low_limit').value = lowLimit;
-    document.getElementById('high_limit').value = highLimit;
-    document.getElementById('tagSubmitBtn').innerText = 'Update Tag';
+    if (!checked.length) {
+        e.preventDefault();
+        alert("Please select at least one meter.");
+        return;
+    }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+    for (const cb of checked) {
+        const item = cb.closest(".meter-item");
+        if (item.dataset.configured === "1") {
+            e.preventDefault();
+            alert("Meter is already added.");
+            return;
+        }
+    }
+});
+
+document.getElementById("tagForm").addEventListener("submit", function(e) {
+    if (this.action.includes("/tag/update")) return;
+
+    const checked = document.querySelectorAll('.tag-item input[type="checkbox"]:checked');
+
+    if (!checked.length) {
+        e.preventDefault();
+        alert("Please select at least one tag.");
+        return;
+    }
+
+    for (const cb of checked) {
+        const item = cb.closest(".tag-item");
+        if (item.dataset.configured === "1") {
+            e.preventDefault();
+            alert("This tag is already added.");
+            return;
+        }
+    }
+});
+
 </script>
 
 {% endblock %}

@@ -5,58 +5,131 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login | Servexl IOT</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="stylesheet" href="/static/css/app.css?v=20260629-clean-login-v3">
 </head>
-<body class="login login-showcase">
-    <main class="showcase-stage">
-        <div class="ambient-card card-left-top">
-            <div class="avatar-orbit"><i class="fa-solid fa-user-gear"></i><span></span><span></span><span></span></div>
-        </div>
-        <div class="ambient-card card-right-top">
-            <div class="toggle-visual"><span></span><b></b></div>
-        </div>
-        <div class="ambient-card card-right-bottom">
-            <div class="alert-stack"><span></span><span></span><span></span></div>
-        </div>
-        <div class="ambient-card card-left-bottom">
-            <div class="alert-stack mini-left-stack"><span></span><span></span><span></span></div>
-        </div>
-        <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div><div class="dot d4"></div><div class="dot d5"></div>
+<body class="login-clean-page">
+    <main class="login-clean-shell">
+        <section class="login-clean-visual" aria-label="Servexl Industrial IoT platform">
+            <div class="login-clean-glow login-clean-glow-one"></div>
+            <div class="login-clean-glow login-clean-glow-two"></div>
+            <div class="login-clean-grid-pattern" aria-hidden="true"></div>
 
-        <section class="hero-center">
-            <div class="login-brand-mark">
-                <div class="brand-logo">SX</div>
-                <strong>Servexl IOT</strong>
-            </div>
-            <p class="hero-kicker">LET'S CONNECT YOUR FACTORY</p>
-            <h1>The IIoT Cloud Platform Your Plant Needs.</h1>
-            <p class="hero-subtitle">Bring gateways, sensors, MQTT data, machine health, alerts and production reports into one beautiful real-time workspace.</p>
-            <div class="hero-pills">
-                <span><i class="fa-solid fa-satellite-dish"></i> MQTT Ready</span>
-                <span><i class="fa-solid fa-chart-line"></i> Live Trends</span>
-                <span><i class="fa-solid fa-shield-halved"></i> Secure Access</span>
+            <div class="login-clean-visual-content">
+                <div class="login-clean-brand-row" aria-label="ServeXL and QuickIOT">
+                    <div class="login-clean-brand-box login-clean-servexl">
+                        <img src="/static/img/servexl-logo.png?v=20260629-clean-login-v3" alt="ServeXL logo">
+                    </div>
+                    <span class="login-clean-brand-divider" aria-hidden="true"></span>
+                    <div class="login-clean-brand-box login-clean-quickiot">
+                        <img src="/static/img/quickiot-logo.png?v=20260629-clean-login-v3" alt="QuickIOT logo">
+                    </div>
+                </div>
+
+                <div class="login-clean-copy">
+                    <span class="login-clean-eyebrow"><i class="fa-solid fa-industry"></i> Industrial IoT Cloud Platform</span>
+                    <h1>One clear view of your entire plant.</h1>
+                    <p>Connect gateways, machines and sensors. Monitor live MQTT values, alarms, trends and production performance from one secure workspace.</p>
+                </div>
+
+                <div class="login-clean-showcase" aria-label="Live operations preview">
+                    <div class="login-clean-showcase-head">
+                        <div>
+                            <small>LIVE OPERATIONS</small>
+                            <strong>Plant overview</strong>
+                        </div>
+                        <span><i></i> Connected</span>
+                    </div>
+
+                    <div class="login-clean-metrics">
+                        <article>
+                            <i class="fa-solid fa-tower-broadcast"></i>
+                            <div><strong>24/7</strong><span>Connectivity</span></div>
+                        </article>
+                        <article>
+                            <i class="fa-solid fa-wave-square"></i>
+                            <div><strong>Live</strong><span>Process data</span></div>
+                        </article>
+                        <article>
+                            <i class="fa-solid fa-bell"></i>
+                            <div><strong>Fast</strong><span>Alert response</span></div>
+                        </article>
+                    </div>
+
+                    <div class="login-clean-chart">
+                        <div class="login-clean-chart-label">
+                            <span>Machine activity</span>
+                            <b>Real-time</b>
+                        </div>
+                        <svg viewBox="0 0 640 140" preserveAspectRatio="none" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="loginArea" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#52e4c3" stop-opacity="0.45"/>
+                                    <stop offset="100%" stop-color="#52e4c3" stop-opacity="0"/>
+                                </linearGradient>
+                            </defs>
+                            <path class="login-clean-area" d="M0,115 C40,104 68,84 105,91 C142,98 165,59 205,69 C244,79 274,42 312,50 C350,58 373,88 414,65 C455,42 475,33 514,48 C553,63 578,30 640,18 L640,140 L0,140 Z"/>
+                            <path class="login-clean-line" d="M0,115 C40,104 68,84 105,91 C142,98 165,59 205,69 C244,79 274,42 312,50 C350,58 373,88 414,65 C455,42 475,33 514,48 C553,63 578,30 640,18"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="login-clean-benefits">
+                    <span><i class="fa-solid fa-circle-check"></i> Secure access</span>
+                    <span><i class="fa-solid fa-circle-check"></i> Live MQTT monitoring</span>
+                    <span><i class="fa-solid fa-circle-check"></i> Responsive dashboards</span>
+                </div>
             </div>
         </section>
 
-        <form class="floating-login-card" method="post">
-            <div class="login-card-top">
-                <div>
-                    <span class="secure-chip"><i class="fa-solid fa-lock"></i> Operator Login</span>
-                    <h2>Welcome back</h2>
+        <section class="login-clean-auth" aria-label="Login form">
+            <div class="login-clean-auth-inner">
+                <div class="login-clean-mobile-brand" aria-hidden="true">
+                    <img src="/static/img/servexl-logo.png?v=20260629-clean-login-v3" alt="">
+                    <span></span>
+                    <img src="/static/img/quickiot-logo.png?v=20260629-clean-login-v3" alt="">
                 </div>
-                <div class="mini-logo">SX</div>
+
+                <form class="login-clean-card" method="post">
+                    <div class="login-clean-card-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                    <span class="login-clean-form-kicker">Secure operator access</span>
+                    <h2>Welcome back</h2>
+                    <p class="login-clean-form-copy">Sign in to continue to your industrial monitoring dashboard.</p>
+
+                    {% if error %}
+                    <div class="error login-clean-error"><i class="fa-solid fa-circle-exclamation"></i> {{ error }}</div>
+                    {% endif %}
+
+                    <label for="login-email">Email</label>
+                    <div class="login-clean-input">
+                        <i class="fa-solid fa-envelope"></i>
+                        <input id="login-email" name="email" type="email" placeholder="admin@company.com" autocomplete="username" required>
+                    </div>
+
+                    <div class="login-clean-password-label">
+                        <label for="login-password">Password</label>
+                        <a href="/forgot-password">Forgot password?</a>
+                    </div>
+                    <div class="login-clean-input">
+                        <i class="fa-solid fa-key"></i>
+                        <input id="login-password" type="password" name="password" placeholder="Enter password" autocomplete="current-password" required>
+                    </div>
+
+                    <button class="login-clean-submit" type="submit">
+                        <span>Login</span><i class="fa-solid fa-arrow-right"></i>
+                    </button>
+
+                    <div class="login-clean-security-note">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Your connection is protected and securely authenticated.</span>
+                    </div>
+                </form>
+
+                <p class="login-clean-footer">ServeXL Industrial IoT Cloud Platform</p>
             </div>
-            <p>Access your Servexl industrial monitoring dashboard.</p>
-            {% if error %}<div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{error}}</div>{% endif %}
-            <label>Email</label>
-            <div class="input-icon"><i class="fa-solid fa-envelope"></i><input name="email" placeholder="admin@company.com" required></div>
-            <label>Password</label>
-            <div class="input-icon"><i class="fa-solid fa-key"></i><input type="password" name="password" placeholder="Enter password" required></div>
-            <button><i class="fa-solid fa-right-to-bracket"></i> Login</button>
-            <div class="login-help"><a href="/forgot-password">Forgot password?</a><span><i class="fa-solid fa-circle-check"></i> Cloud ready</span></div>
-        </form>
+        </section>
     </main>
 </body>
 </html>
