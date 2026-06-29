@@ -228,65 +228,126 @@ def gateway(
 
 
 @router.post("/sensor/add")
-def sensor_add(
+async def sensor_add(
+    request: Request,
     gateway_id: int = Form(...),
-    sensor_id: int = Form(...),
-    sensor_type: str = Form("MQTT_METER"),
+    sensor_ids: List[int] = Form(...),
+    sensor_type: str = Form(...),
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
-    sensor = db.query(Sensor).filter(
-        Sensor.id == sensor_id,
-        Sensor.gateway_id == gateway_id
-    ).first()
+    form = await request.form()
+    configured_count = 0
 
-    if sensor:
+    for sensor_id in sensor_ids:
         existing = db.query(ConfiguredMeter).filter(
-            ConfiguredMeter.sensor_id == sensor.id
+            ConfiguredMeter.sensor_id == sensor_id
         ).first()
 
         if existing:
-            existing.gateway_id = gateway_id
-            existing.code = sensor.code
-            existing.name = sensor.name
-            existing.sensor_type = sensor_type
-            existing.is_active = True
-        else:
-            db.add(ConfiguredMeter(
-                sensor_id=sensor.id,
-                gateway_id=gateway_id,
-                code=sensor.code,
-                name=sensor.name,
-                sensor_type=sensor_type,
-                is_active=True
-            ))
+            continue
 
-        db.commit()
+        sensor = db.query(Sensor).filter(
+            Sensor.id == sensor_id,
+            Sensor.gateway_id == gateway_id
+        ).first()
+
+        if not sensor:
+            continue
+
+        alias_name = str(form.get(f"meter_alias_{sensor_id}") or "").strip()
+        if not alias_name:
+            alias_name = sensor.name
+
+        db.add(ConfiguredMeter(
+            sensor_id=sensor.id,
+            gateway_id=gateway_id,
+            code=sensor.code,
+            name=alias_name,
+            sensor_type=sensor_type,
+            is_active=True
+        ))
+
+        configured_count += 1
+
+    db.commit()
+
+    if configured_count > 0:
+        log_event(db, user, "Devices", "Add Meter", f"Configured {configured_count} meters")
 
         log_event(db, user, "Devices", "Add Meter", f"Configured meter {sensor.name}")
 
     return RedirectResponse("/devices", 303)
 
 
-@router.post("/sensor/update")
-def sensor_update(
-    configured_meter_id: int = Form(...),
-    gateway_id: int = Form(...),
-    code: str = Form(...),
-    name: str = Form(...),
-    sensor_type: str = Form("MQTT_METER"),
+@router.get("/api/sensors/{gateway_id}")
+def get_sensors_by_gateway(
+    gateway_id: int,
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
-    meter = db.query(ConfiguredMeter).filter(ConfiguredMeter.id == configured_meter_id).first()
+    sensors = (
+        db.query(Sensor)
+        .filter(
+            Sensor.gateway_id == gateway_id,
+            Sensor.is_active == True
+        )
+        .order_by(Sensor.id.desc())
+        .all()
+    )
 
-    if meter:
-        meter.gateway_id = gateway_id
-        meter.code = code
-        meter.name = name
-        meter.sensor_type = sensor_type
-        meter.is_active = True
-        db.commit()
+    configured_sensor_ids = {
+        m.sensor_id for m in db.query(ConfiguredMeter).all()
+    }
+
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "code": s.code,
+            "configured": 1 if s.id in configured_sensor_ids else 0,
+        }
+        for s in sensors
+    ]
+
+@router.post("/sensor/update")
+async def sensor_update(
+    request: Request,
+    configured_meter_id: int = Form(...),
+    gateway_id: int = Form(...),
+    sensor_ids: List[int] = Form(...),
+    sensor_type: str = Form(...),
+    db: Session = Depends(get_db),
+    user=Depends(require_user),
+):
+    form = await request.form()
+
+    meter = db.query(ConfiguredMeter).filter(
+        ConfiguredMeter.id == configured_meter_id
+    ).first()
+
+    if meter and sensor_ids:
+        sensor_id = sensor_ids[0]
+
+        sensor = db.query(Sensor).filter(
+            Sensor.id == sensor_id,
+            Sensor.gateway_id == gateway_id
+        ).first()
+
+        if sensor:
+            alias_name = str(form.get(f"meter_alias_{sensor_id}") or "").strip()
+            if not alias_name:
+                alias_name = sensor.name
+
+            meter.gateway_id = gateway_id
+            meter.sensor_id = sensor.id
+            meter.code = sensor.code
+            meter.name = alias_name
+            meter.sensor_type = sensor_type
+            meter.is_active = True
+
+            db.commit()
+            log_event(db, user, "Devices", "Update Meter", f"Updated meter {meter.name}")
 
         log_event(db, user, "Devices", "Update Meter", f"Updated meter {meter.name}")
 
@@ -328,45 +389,75 @@ def sensor_delete(
 
 
 @router.post("/tag/add")
-def tag_add(
+async def tag_add(
+    request: Request,
     configured_meter_id: int = Form(...),
     tag_ids: List[int] = Form(...),
+    tag_type: str = Form("Analog Tag"),
     low_limit: str = Form(""),
     high_limit: str = Form(""),
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
-    meter = db.query(ConfiguredMeter).filter(ConfiguredMeter.id == configured_meter_id).first()
+    form = await request.form()
+
+    meter = db.query(ConfiguredMeter).filter(
+        ConfiguredMeter.id == configured_meter_id
+    ).first()
 
     if meter:
         for tag_id in tag_ids:
             tag = db.query(Tag).filter(Tag.id == tag_id).first()
-
             if not tag:
                 continue
 
-            existing = db.query(ConfiguredTag).filter(
+            alias_name = str(form.get(f"alias_{tag_id}") or "").strip()
+            unit_name = str(form.get(f"unit_{tag_id}") or "").strip()
+
+            if not alias_name:
+                alias_name = f"{tag.display_name} - {tag.unit}" if tag.unit else tag.display_name
+
+            configured_tag = db.query(ConfiguredTag).filter(
                 ConfiguredTag.tag_id == tag.id,
                 ConfiguredTag.configured_meter_id == meter.id,
             ).first()
 
-            if existing:
-                existing.low_limit = to_float(low_limit)
-                existing.high_limit = to_float(high_limit)
-                existing.is_active = True
+            if configured_tag:
+                configured_tag.display_name = alias_name
+                configured_tag.unit = unit_name
+                configured_tag.tag_type = tag_type
+                configured_tag.low_limit = to_float(low_limit)
+                configured_tag.high_limit = to_float(high_limit)
+                configured_tag.is_active = True
             else:
-                db.add(ConfiguredTag(
+                configured_tag = ConfiguredTag(
                     tag_id=tag.id,
                     configured_meter_id=meter.id,
                     key=tag.key,
-                    display_name=tag.display_name,
-                    unit=tag.unit,
+                    display_name=alias_name,
+                    unit=unit_name,
+                    tag_type=tag_type,
                     low_limit=to_float(low_limit),
                     high_limit=to_float(high_limit),
                     is_active=True,
+                )
+                db.add(configured_tag)
+
+            db.flush()
+
+            live = db.query(LiveValue).filter(
+                LiveValue.configured_tag_id == configured_tag.id
+            ).first()
+
+            if not live:
+                db.add(LiveValue(
+                    configured_tag_id=configured_tag.id,
+                    value=0,
+                    quality="WAITING",
                 ))
 
         db.commit()
+        log_event(db, user, "Devices", "Add Tag", f"Configured {len(tag_ids)} tags")
 
         log_event(db, user, "Devices", "Add Tag", f"Configured tag {tag.display_name}")
 
@@ -374,22 +465,40 @@ def tag_add(
 
 
 @router.post("/tag/update")
-def tag_update(
-    tag_id: int = Form(...),
+async def tag_update(
+    request: Request,
+    configured_tag_id: int = Form(...),
     configured_meter_id: int = Form(...),
+    tag_type: str = Form("Analog Tag"),
     low_limit: str = Form(""),
     high_limit: str = Form(""),
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
-    ct = db.query(ConfiguredTag).filter(ConfiguredTag.id == tag_id).first()
+    form = await request.form()
+
+    ct = db.query(ConfiguredTag).filter(ConfiguredTag.id == configured_tag_id).first()
 
     if ct:
+        tag = db.query(Tag).filter(Tag.id == ct.tag_id).first()
+
+        alias_name = str(form.get(f"alias_{ct.tag_id}") or "").strip()
+        unit_name = str(form.get(f"unit_{ct.tag_id}") or "").strip()
+
+        if not alias_name and tag:
+            alias_name = f"{tag.display_name} - {tag.unit}" if tag.unit else tag.display_name
+
         ct.configured_meter_id = configured_meter_id
+        ct.display_name = alias_name
+        ct.unit = unit_name
+        ct.tag_type = tag_type
         ct.low_limit = to_float(low_limit)
         ct.high_limit = to_float(high_limit)
         ct.is_active = True
+
         db.commit()
+        log_event(db, user, "Devices", "Update Tag", f"Updated configured tag {ct.display_name}")
+
         log_event(db, user, "Devices", "Update Tag", f"Updated configured tag {ct.display_name}")
 
     return RedirectResponse("/devices", 303)

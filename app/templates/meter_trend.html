@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="page-hero">
+    <div>
+        <p class="eyebrow">Meter Trend Analysis</p>
+        <h1>{{ meter.name if meter else 'Meter Trend' }}</h1>
+        <p class="subtitle">View all numeric tag trends for this meter by selected time period.</p>
+    </div>
+
+    <a class="badge" href="/dashboard">
+        <i class="fa-solid fa-arrow-left"></i> Back
+    </a>
+</div>
+
+<section class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2><i class="fa-solid fa-chart-line"></i> Meter Trend</h2>
+
+        <select id="periodSelect" style="max-width:220px;">
+            <option value="15m">Last 15 Minutes</option>
+            <option value="30m">Last 30 Minutes</option>
+            <option value="1h" selected>Last 1 Hour</option>
+            <option value="6h">Last 6 Hours</option>
+            <option value="12h">Last 12 Hours</option>
+            <option value="24h">Last 24 Hours</option>
+            <option value="7d">Last 7 Days</option>
+        </select>
+    </div>
+
+    <div id="trendContainer"></div>
+</section>
+
+<style>
+#trendContainer{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:20px;
+}
+
+.trend-card{
+    background:#fff;
+    border:1px solid #dbe6f5;
+    border-radius:18px;
+    padding:18px;
+    box-shadow:0 8px 20px rgba(0,0,0,.05);
+    transition:.25s;
+}
+
+.trend-card:hover{
+    transform:translateY(-3px);
+    box-shadow:0 15px 30px rgba(0,0,0,.08);
+}
+
+.trend-title{
+    font-size:22px;
+    font-weight:700;
+    margin-bottom:4px;
+}
+
+.trend-type{
+    color:#6b7280;
+    margin-bottom:15px;
+}
+
+.chart-box{
+    height:220px;
+}
+
+@media(max-width:1400px){
+    #trendContainer{
+        grid-template-columns:repeat(2,1fr);
+    }
+}
+
+@media(max-width:900px){
+    #trendContainer{
+        grid-template-columns:1fr;
+    }
+}
+</style>
+
+<script>
+const METER_ID = {{ meter.id if meter else 0 }};
+let meterCharts = {};
+let createdCards = {};
+let isFirstLoad = true;
+
+function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+async function loadMeterTrend() {
+    const period = document.getElementById("periodSelect").value;
+    const response = await fetch(`/api/meter-trend/${METER_ID}?period=${period}`, { cache: "no-store" });
+    const data = await response.json();
+
+    const container = document.getElementById("trendContainer");
+
+    if (!data.length) {
+        if (isFirstLoad) {
+            container.innerHTML = "<p>No numeric trend data available for selected period.</p>";
+        }
+        return;
+    }
+
+    if (isFirstLoad) {
+        container.innerHTML = "";
+        Object.values(meterCharts).forEach(chart => chart.destroy());
+        meterCharts = {};
+        createdCards = {};
+    }
+
+    data.forEach(tag => {
+        const canvasId = `chart_${tag.tag_id}`;
+
+        if (!createdCards[tag.tag_id]) {
+            const card = document.createElement("div");
+            card.className = "trend-card";
+            card.id = `card_${tag.tag_id}`;
+
+            card.innerHTML = `
+                <div class="trend-title">${tag.tag_name}</div>
+                <div class="trend-type">${tag.tag_type || "Not Set"}</div>
+                <div class="chart-box">
+                    <canvas id="${canvasId}"></canvas>
+                </div>
+            `;
+
+            container.appendChild(card);
+            createdCards[tag.tag_id] = true;
+        }
+
+        const canvas = document.getElementById(canvasId);
+
+        const labels = tag.values.map(x => x.timestamp);
+        const values = tag.values.map(x => x.value);
+
+        if (!meterCharts[tag.tag_id]) {
+            meterCharts[tag.tag_id] = new Chart(canvas, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: tag.tag_name,
+                        data: values,
+                        borderWidth: 3,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        borderColor: cssVar("--primary"),
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: {
+                        intersect: false,
+                        mode: "index"
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    elements: {
+                        line: { borderWidth: 3, tension: .35 },
+                        point: { radius: 0, hoverRadius: 4 }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { maxTicksLimit: 6 },
+                            grid: { display: false }
+                        },
+                        y: {
+                            ticks: { maxTicksLimit: 5 }
+                        }
+                    }
+                }
+            });
+        } else {
+            meterCharts[tag.tag_id].data.labels = labels;
+            meterCharts[tag.tag_id].data.datasets[0].data = values;
+            meterCharts[tag.tag_id].update("none");
+        }
+    });
+
+    isFirstLoad = false;
+}
+
+document.getElementById("periodSelect").addEventListener("change", function () {
+    isFirstLoad = true;
+    loadMeterTrend();
+});
+
+loadMeterTrend();
+setInterval(loadMeterTrend, 10000);
+</script>
+
+{% endblock %}

@@ -37,111 +37,351 @@
 </div>
 
 
-<section class="live-showcase">
-    <div class="pulse-orb">
-        <span></span><span></span><span></span>
-        <i class="fa-solid fa-wifi"></i>
-    </div>
-    <div>
-        <p class="eyebrow">Factory Pulse</p>
-        <h2>Live trends that move with your machines</h2>
-        <p class="subtitle">Animated sparklines highlight live process values, sudden changes and device activity so operators can notice issues faster.</p>
-    </div>
-    <div class="mini-signal">
-        <em></em><em></em><em></em><em></em><em></em><em></em><em></em>
-    </div>
-</section>
-
 <section class="panel live-panel">
     <div class="panel-header">
         <div>
-            <h2><i class="fa-solid fa-wave-square"></i> Live Values & Attention Trends</h2>
-            <p class="subtitle">Latest sensor value and sparkline trend for each configured tag.</p>
+            <h2><i class="fa-solid fa-wave-square"></i> Meter Wise Live Values</h2>
+            <p class="subtitle">Search, filter and view live values meter-wise.</p>
         </div>
         <span class="badge" id="liveStatus">Connecting...</span>
     </div>
-    <table>
-        <thead>
-            <tr>
-                <th>Meter Name</th>
-                <th>Tag Name</th>
-                <th>Value</th>
-                <th>Live Trend</th>
-            </tr>
-        </thead>
-        <tbody id="liveTableBody"></tbody>
-    </table>
+
+    <div class="dashboard-filters">
+        <input id="searchInput" placeholder="Search meter or tag...">
+
+        <select id="meterFilter">
+            <option value="">All Meters</option>
+        </select>
+
+        <select id="typeFilter">
+			<option value="">All Tag Types</option>
+		</select>
+    </div>
+
+    <div id="meterCards"></div>
+
+    <div class="dashboard-pagination">
+        <button type="button" id="prevBtn">Previous</button>
+        <span class="badge" id="pageInfo">Page 1</span>
+        <button type="button" id="nextBtn">Next</button>
+    </div>
 </section>
+
+<style>
+.tag-grid-body{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:14px;
+}
+
+@media(max-width:1400px){
+    .tag-grid-body{
+        grid-template-columns:repeat(2,1fr);
+    }
+}
+
+@media(max-width:900px){
+    .tag-grid-body{
+        grid-template-columns:1fr;
+    }
+}
+</style>
 
 <script>
 const REFRESH_SECONDS = {{ dashboard_refresh_seconds }};
 const MAX_POINTS = {{ live_trend_points }};
+const PAGE_SIZE = 5;
 
+let allData = [];
+let currentPage = 1;
 let historyData = {};
 let chartInstances = {};
-function safeId(value) { return String(value).replace(/[^a-zA-Z0-9_]/g, "_"); }
-function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-function gradientFill(canvas){
-    const ctx = canvas.getContext('2d');
+let collapsedMeters = new Set();
+
+function safeId(value) {
+    return String(value).replace(/[^a-zA-Z0-9_]/g, "_");
+}
+
+function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function gradientFill(canvas) {
+    const ctx = canvas.getContext("2d");
     const g = ctx.createLinearGradient(0, 0, 0, 70);
-    g.addColorStop(0, cssVar('--primary') + '55');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
+    g.addColorStop(0, cssVar("--primary") + "55");
+    g.addColorStop(1, "rgba(255,255,255,0)");
     return g;
 }
-async function loadLiveValues() {
-    try {
-        const response = await fetch('/api/live-values');
-        const data = await response.json();
-        const tbody = document.getElementById('liveTableBody');
-        document.getElementById('liveStatus').innerHTML = '<i class="fa-solid fa-circle-check"></i> Online';
-        if (!data.length) {
-            tbody.innerHTML = '<tr><td colspan="4">No live values available</td></tr>';
-            return;
-        }
-        data.forEach(row => {
+
+function populateMeterFilter(data) {
+    const meterFilter = document.getElementById("meterFilter");
+    const selected = meterFilter.value;
+
+    const meters = [...new Set(data.map(x => x.meter_name))];
+
+    meterFilter.innerHTML = '<option value="">All Meters</option>';
+
+    meters.forEach(meter => {
+        const opt = document.createElement("option");
+        opt.value = meter;
+        opt.textContent = meter;
+        meterFilter.appendChild(opt);
+    });
+
+    meterFilter.value = selected;
+}
+
+function populateTagTypeFilter(data) {
+    const typeFilter = document.getElementById("typeFilter");
+    const selected = typeFilter.value;
+
+    const tagTypes = [
+        ...new Set(
+            data
+                .map(x => x.tag_type || "Not Set")
+                .filter(x => x && x.trim() !== "")
+        )
+    ];
+
+    typeFilter.innerHTML = '<option value="">All Tag Types</option>';
+
+    tagTypes.forEach(type => {
+        const opt = document.createElement("option");
+        opt.value = type;
+        opt.textContent = type;
+        typeFilter.appendChild(opt);
+    });
+
+    typeFilter.value = selected;
+}
+
+function getFilteredData() {
+    const search = document.getElementById("searchInput").value.toLowerCase();
+    const meter = document.getElementById("meterFilter").value;
+    const type = document.getElementById("typeFilter").value;
+
+    return allData.filter(row => {
+        const matchesSearch =
+            row.meter_name.toLowerCase().includes(search) ||
+            row.tag_name.toLowerCase().includes(search);
+
+        const matchesMeter = !meter || row.meter_name === meter;
+
+        const matchesType = !type || row.tag_type === type;
+
+        return matchesSearch && matchesMeter && matchesType;
+    });
+}
+
+function renderDashboard() {
+    const container = document.getElementById("meterCards");
+    container.innerHTML = "";
+
+    const filtered = getFilteredData();
+
+    const groupedAll = {};
+    filtered.forEach(row => {
+        if (!groupedAll[row.meter_name]) groupedAll[row.meter_name] = [];
+        groupedAll[row.meter_name].push(row);
+    });
+
+    const meterNames = Object.keys(groupedAll);
+    const totalPages = Math.max(1, Math.ceil(meterNames.length / PAGE_SIZE));
+
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageMeterNames = meterNames.slice(start, start + PAGE_SIZE);
+
+    document.getElementById("pageInfo").innerText =
+        `Page ${currentPage} of ${totalPages}`;
+
+    document.getElementById("prevBtn").disabled = currentPage <= 1;
+    document.getElementById("nextBtn").disabled = currentPage >= totalPages;
+
+    if (!pageMeterNames.length) {
+        container.innerHTML = "<p>No live values available.</p>";
+        return;
+    }
+
+    const grouped = {};
+    pageMeterNames.forEach(meterName => {
+        grouped[meterName] = groupedAll[meterName];
+    });
+
+    Object.keys(grouped).forEach(meterName => {
+        const meterId = `meter_${safeId(meterName)}`;
+        const isCollapsed = collapsedMeters.has(meterId);
+        const tags = grouped[meterName];
+        const isOffline = tags.every(x => x.is_offline === true);
+
+        const card = document.createElement("div");
+        card.className = "panel";
+        card.style.marginBottom = "14px";
+
+        card.innerHTML = `
+            <div class="meter-card-header" onclick="toggleMeter('${meterId}')">
+                <h2 style="margin:0;display:flex;align-items:center;gap:12px;">
+                    <span><i class="fa-solid fa-gauge-high"></i> ${meterName}</span>
+                    <a class="badge" href="/meter-trend/${tags[0].meter_id}" onclick="event.stopPropagation();">
+                        Meter Trend
+                    </a>
+                </h2>
+
+                <div class="meter-card-actions">
+                    <span class="badge" style="${isOffline ? 'background:#ffe5e5;color:#c0392b;' : ''}">
+                        ${isOffline ? 'Offline' : 'Online'}
+                    </span>
+                    <button type="button" class="badge" onclick="event.stopPropagation(); toggleMeter('${meterId}')">
+                        ${tags.length} Tags <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="${meterId}" style="margin-top:14px;display:${isCollapsed ? 'none' : 'block'};">
+                <div id="${meterId}_body" class="tag-grid-body"></div>
+            </div>
+        `;
+
+        container.appendChild(card);
+
+        const tbody = document.getElementById(`${meterId}_body`);
+
+        tags.forEach(row => {
             const key = `tag_${row.tag_id}`;
-            const rowId = `row_${safeId(row.tag_id)}`;
             const canvasId = `trend_${safeId(row.tag_id)}`;
+            const numericValue = Number(row.value);
+            const isNumeric = !isNaN(numericValue) && row.is_string !== true && row.is_offline !== true;
+
             if (!historyData[key]) historyData[key] = [];
-            historyData[key].push(Number(row.value));
 
-            if (historyData[key].length > MAX_POINTS) {
-                historyData[key].shift();
+            if (isNumeric) {
+                historyData[key].push(numericValue);
+                if (historyData[key].length > MAX_POINTS) historyData[key].shift();
             }
 
-            let tr = document.getElementById(rowId);
-            if (!tr) {
-                tr = document.createElement('tr');
-                tr.id = rowId;
-                tr.innerHTML = `
-                    <td>${row.meter_name}</td>
-                    <td>${row.tag_name}</td>
-                    <td id="${rowId}_value"><span class="value-pill pulse-value"><i class="fa-solid fa-circle"></i>${row.value}</span></td>
-                    <td class="trend-cell"><div class="trend-box"><canvas id="${canvasId}"></canvas></div></td>`;
-                tbody.appendChild(tr);
-            } else {
-                document.getElementById(`${rowId}_value`).innerHTML = `<span class="value-pill"><i class="fa-solid fa-circle"></i>${row.value}</span>`;
-            }
+            const tagCard = document.createElement("div");
+            tagCard.className = "tag-live-card";
+
+            tagCard.innerHTML = `
+                <div>
+                    <div style="font-weight:800;margin-bottom:6px;">${row.tag_name}</div>
+                    <div style="color:#667085;font-size:13px;">${row.tag_type || "Not Set"}</div>
+                </div>
+
+                <span class="value-pill pulse-value">
+                    <i class="fa-solid fa-circle"></i>
+                    ${row.is_offline ? "Gateway Offline" : (row.value ?? "")}
+                </span>
+
+                <div class="trend-cell">
+                    ${
+                        isNumeric
+                        ? `<div class="trend-box" style="height:58px;width:210px;"><canvas id="${canvasId}"></canvas></div>`
+                        : `<span class="badge">String</span>`
+                    }
+                </div>
+
+                <div style="text-align:right;">
+                    <a class="badge" href="/trend/${row.tag_id}">Open Trend</a>
+                </div>
+            `;
+
+            tbody.appendChild(tagCard);
+
+            if (!isNumeric) return;
+
             const canvas = document.getElementById(canvasId);
-            if (!chartInstances[key]) {
-                chartInstances[key] = new Chart(canvas, {
-                    type: 'line',
-                    data: { labels: historyData[key].map((_, i) => i + 1), datasets: [{ data: historyData[key], borderWidth: 3, tension: 0.42, pointRadius: 0, borderColor: cssVar('--primary'), backgroundColor: gradientFill(canvas), fill: true }] },
-                    options: { animation: { duration: 450 }, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } }
-                });
-            } else {
-                chartInstances[key].data.labels = historyData[key].map((_, i) => i + 1);
-                chartInstances[key].data.datasets[0].data = historyData[key];
-                chartInstances[key].data.datasets[0].borderColor = cssVar('--primary');
-                chartInstances[key].data.datasets[0].backgroundColor = gradientFill(canvas);
-                chartInstances[key].update('none');
-            }
+
+            if (chartInstances[key]) chartInstances[key].destroy();
+
+            chartInstances[key] = new Chart(canvas, {
+                type: "line",
+                data: {
+                    labels: historyData[key].map((_, i) => i + 1),
+                    datasets: [{
+                        data: historyData[key],
+                        borderWidth: 3,
+                        tension: 0.42,
+                        pointRadius: 0,
+                        borderColor: cssVar("--primary"),
+                        backgroundColor: gradientFill(canvas),
+                        fill: true
+                    }]
+                },
+                options: {
+                    animation: false,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: { x: { display: false }, y: { display: false } }
+                }
+            });
         });
-    } catch (err) {
-        document.getElementById('liveStatus').innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Offline';
-        console.error('Live update error:', err);
+    });
+}
+
+function toggleMeter(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const closing = el.style.display !== "none";
+
+    if (closing) {
+        el.style.display = "none";
+        collapsedMeters.add(id);
+    } else {
+        el.style.display = "block";
+        collapsedMeters.delete(id);
     }
 }
+
+async function loadLiveValues() {
+    try {
+        const response = await fetch("/api/live-values", { cache: "no-store" });
+        allData = await response.json();
+
+        document.getElementById("liveStatus").innerHTML =
+            '<i class="fa-solid fa-circle-check"></i> Online';
+
+        populateMeterFilter(allData);
+		populateTagTypeFilter(allData);
+		renderDashboard();
+
+    } catch (err) {
+        document.getElementById("liveStatus").innerHTML =
+            '<i class="fa-solid fa-circle-xmark"></i> Offline';
+        console.error("Live update error:", err);
+    }
+}
+
+document.getElementById("searchInput").addEventListener("input", () => {
+    currentPage = 1;
+    renderDashboard();
+});
+
+document.getElementById("meterFilter").addEventListener("change", () => {
+    currentPage = 1;
+    renderDashboard();
+});
+
+document.getElementById("typeFilter").addEventListener("change", () => {
+    currentPage = 1;
+    renderDashboard();
+});
+
+document.getElementById("prevBtn").addEventListener("click", () => {
+    if (currentPage > 1) {
+        currentPage--;
+        renderDashboard();
+    }
+});
+
+document.getElementById("nextBtn").addEventListener("click", () => {
+    currentPage++;
+    renderDashboard();
+});
 
 loadLiveValues();
 setInterval(loadLiveValues, REFRESH_SECONDS * 1000);

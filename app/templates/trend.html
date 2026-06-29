@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="page-hero">
+    <div>
+        <p class="eyebrow">Tag Trend Analysis</p>
+        <h1>{{ tag.display_name if tag else 'Tag Trend' }}</h1>
+        <p class="subtitle">Historical trend for selected configured tag.</p>
+    </div>
+
+    <a class="badge" href="/dashboard">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2>Trend Chart</h2>
+            <p class="subtitle">Latest 100 historical records.</p>
+        </div>
+        <span class="badge" id="trendStatus">Loading...</span>
+    </div>
+
+    <div style="height:420px;">
+        <canvas id="trendChart"></canvas>
+    </div>
+</section>
+
+<script>
+const TAG_ID = {{ tag.id if tag else 0 }};
+let trendChart = null;
+
+async function loadTrend() {
+    const response = await fetch(`/api/trend/${TAG_ID}`, { cache: "no-store" });
+    const data = await response.json();
+
+    document.getElementById("trendStatus").innerHTML =
+        '<i class="fa-solid fa-circle-check"></i> Loaded';
+
+    const numericData = data.filter(x => !x.is_string);
+
+    if (!numericData.length) {
+        document.getElementById("trendStatus").innerHTML = "String tag - chart not available";
+        return;
+    }
+
+    const labels = numericData.map(x => x.timestamp);
+    const values = numericData.map(x => Number(x.value));
+
+    const canvas = document.getElementById("trendChart");
+
+    if (trendChart) trendChart.destroy();
+
+    trendChart = new Chart(canvas, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Value",
+                data: values,
+                borderWidth: 3,
+                tension: 0.35,
+                pointRadius: 2,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true }
+            }
+        }
+    });
+}
+
+loadTrend();
+setInterval(loadTrend, 5000);
+</script>
+
+{% endblock %}

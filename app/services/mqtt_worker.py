@@ -6,6 +6,8 @@ from datetime import datetime
 from app.core.database import SessionLocal
 from app.models import (
     Gateway,
+    Sensor,
+    Tag,
     ConfiguredMeter,
     ConfiguredTag,
     LiveValue,
@@ -28,9 +30,7 @@ def process_payload(gateway_id: int, topic: str, payload: str):
 
         flat_data = {}
 
-        # Scenario 1: QIOT direct device format
-        # Topic: QIOT/.../v3/6/slot_values
-        # Payload: [{"slot_idx":6,"tags":[{"idx":0,"val":10}]}]
+        # Scenario 1: QIOT slot_values format
         if isinstance(data, list):
             base_topic = (
                 topic
@@ -39,26 +39,76 @@ def process_payload(gateway_id: int, topic: str, payload: str):
             )
 
             for item in data:
-                if "tags" not in item:
-                    continue
-
                 for tag_item in item.get("tags", []):
                     idx = tag_item.get("idx")
-
                     if "val" in tag_item:
                         flat_data[f"{base_topic}:{idx}"] = tag_item.get("val")
 
-        # Scenario 2: Gateway structured tag:value format
-        # Payload: {"kwh":123.45,"voltage":240}
         elif isinstance(data, dict):
-            flat_data = data
+
+            # Scenario 2: PARSHVI/IOLM_55/port/2/pdi format
+            if isinstance(data.get("P_ProcessData"), dict):
+                process_data = data["P_ProcessData"]
+
+                topic_parts = topic.split("/")
+                port_no = str(data.get("port", ""))
+
+                if "port" in topic_parts:
+                    port_index = topic_parts.index("port")
+                    port_no = topic_parts[port_index + 1]
+
+                device_name = topic_parts[1] if len(topic_parts) > 1 else gateway.code
+
+                meter_code = f"{gateway.code}_{device_name}_PORT_{port_no}"
+                meter_name = f"{gateway.code} {device_name} Port {port_no}"
+
+                meter = db.query(Sensor).filter(
+                    Sensor.gateway_id == gateway.id,
+                    Sensor.code == meter_code
+                ).first()
+
+                if not meter:
+                    meter = Sensor(
+                        gateway_id=gateway.id,
+                        code=meter_code,
+                        name=meter_name,
+                        sensor_type="MQTT_METER",
+                        is_active=True,
+                        is_configured=False,
+                    )
+                    db.add(meter)
+                    db.flush()
+
+                    print(f"[DISCOVERED METER] {meter_name}")
+
+                for key, value in process_data.items():
+                    tag = db.query(Tag).filter(
+                        Tag.sensor_id == meter.id,
+                        Tag.key == key
+                    ).first()
+
+                    if not tag:
+                        db.add(Tag(
+                            sensor_id=meter.id,
+                            key=key,
+                            display_name=key,
+                            unit="",
+                            low_limit=None,
+                            high_limit=None,
+                            log_enabled=False,
+                        ))
+                        print(f"[DISCOVERED TAG] {key}")
+
+                    flat_data[key] = value
+                db.commit()
+
+            # Scenario 3: normal JSON key:value
+            else:
+                flat_data = data
 
         configured_tags = (
             db.query(ConfiguredTag)
-            .join(
-                ConfiguredMeter,
-                ConfiguredTag.configured_meter_id == ConfiguredMeter.id
-            )
+            .join(ConfiguredMeter, ConfiguredTag.configured_meter_id == ConfiguredMeter.id)
             .filter(
                 ConfiguredMeter.gateway_id == gateway.id,
                 ConfiguredTag.is_active == True,
@@ -71,21 +121,43 @@ def process_payload(gateway_id: int, topic: str, payload: str):
             if configured_tag.key not in flat_data:
                 continue
 
-            try:
-                val = float(flat_data[configured_tag.key])
-            except Exception:
-                continue
+            raw_val = flat_data[configured_tag.key]
 
-            live = (
-                db.query(LiveValue)
-                .filter(LiveValue.configured_tag_id == configured_tag.id)
-                .first()
-            )
+            val = None
+            value_text = None
+
+            if configured_tag.tag_type == "String Tag":
+                value_text = str(raw_val)
+
+            elif configured_tag.tag_type == "Digital Tag":
+
+                if isinstance(raw_val, bool):
+                    val = 1 if raw_val else 0
+                    value_text = "ON" if raw_val else "OFF"
+
+                else:
+                    try:
+                        val = float(raw_val)
+                        value_text = str(raw_val)
+                    except Exception:
+                        value_text = str(raw_val)
+
+            else:
+
+                try:
+                    val = float(raw_val)
+                except Exception:
+                    value_text = str(raw_val)
+
+            live = db.query(LiveValue).filter(
+                LiveValue.configured_tag_id == configured_tag.id
+            ).first()
 
             if not live:
                 live = LiveValue(configured_tag_id=configured_tag.id)
 
             live.value = val
+            live.value_text = value_text
             live.timestamp = datetime.now()
             live.quality = "GOOD"
             db.add(live)
@@ -94,48 +166,11 @@ def process_payload(gateway_id: int, topic: str, payload: str):
                 HistoricalValue(
                     configured_tag_id=configured_tag.id,
                     value=val,
+                    value_text=value_text,
                     timestamp=live.timestamp,
                     source="MQTT",
                 )
             )
-
-            if configured_tag.high_limit is not None and val > configured_tag.high_limit:
-                exists = (
-                    db.query(Alert)
-                    .filter(
-                        Alert.tag_id == configured_tag.id,
-                        Alert.status == "active",
-                    )
-                    .first()
-                )
-
-                if not exists:
-                    db.add(
-                        Alert(
-                            tag_id=configured_tag.id,
-                            severity="high",
-                            message=f"{configured_tag.display_name} high limit crossed: {val}",
-                        )
-                    )
-
-            if configured_tag.low_limit is not None and val < configured_tag.low_limit:
-                exists = (
-                    db.query(Alert)
-                    .filter(
-                        Alert.tag_id == configured_tag.id,
-                        Alert.status == "active",
-                    )
-                    .first()
-                )
-
-                if not exists:
-                    db.add(
-                        Alert(
-                            tag_id=configured_tag.id,
-                            severity="low",
-                            message=f"{configured_tag.display_name} low limit crossed: {val}",
-                        )
-                    )
 
         db.commit()
 

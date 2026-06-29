@@ -96,8 +96,21 @@ class ConfiguredTag(Base):
     configured_meter_id = Column(Integer, ForeignKey("configured_meters.id"))
 
     key = Column(String(120))
+
+    # Original MQTT tag name
     display_name = Column(String(120))
+
+    # User-defined alias
+    alias_name = Column(String(120))
+
+    # Original MQTT unit
     unit = Column(String(40))
+
+    # User-defined unit
+    custom_unit = Column(String(40))
+
+    # Analog/Digital/Counter/String
+    tag_type = Column(String(40))
 
     low_limit = Column(Float, nullable=True)
     high_limit = Column(Float, nullable=True)

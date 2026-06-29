@@ -8,19 +8,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="stylesheet" href="/static/css/app.css?v=20260629-login-layout">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="app-shell">
     <aside class="sidebar">
-        <div class="brand">
-            <div class="brand-logo brand-logo-upload"><img src="/static/uploads/logo.png" onerror="this.style.display='none';this.parentElement.classList.add('no-img')" alt="Logo"><span>SX</span></div>
-            <div>
-                <h2>Servexl IOT</h2>
-                <p>Cloud Platform</p>
+        <a class="brand brand-full-logo" href="/dashboard" aria-label="ServeXL dashboard">
+            <div class="brand-logo brand-logo-upload brand-logo-wide">
+                <img src="/static/uploads/logo.png?v=20260629-login-layout"
+                     onerror="this.onerror=null;this.src='/static/img/servexl-logo.png?v=20260629-login-layout';"
+                     alt="ServeXL Logo">
+                <span>SX</span>
             </div>
-        </div>
+            <span class="brand-platform">Industrial IoT Cloud Platform</span>
+        </a>
 
 {% set role = user.role.name if user and user.role else '' %}
 <nav class="nav-menu">
@@ -36,19 +38,20 @@
         <a href="/users"><i class="fa-solid fa-users-gear"></i><span>Users</span></a>
         <a href="/diagnostics"><i class="fa-solid fa-stethoscope"></i><span>Diagnostics</span></a>
         <a href="/settings"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
-		<a href="/event-logs">Event Log</a>
+		<a href="/event-logs"><i class="fa-solid fa-clipboard-list"></i><span>Event Log</span></a>
     {% elif role == 'admin' %}
         <!-- <a href="/devices"><i class="fa-solid fa-microchip"></i><span>Devices / Tags</span></a> -->
         <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
         <a href="/alerts"><i class="fa-solid fa-triangle-exclamation"></i><span>Alerts</span></a>
         <a href="/diagnostics"><i class="fa-solid fa-stethoscope"></i><span>Diagnostics</span></a>
-		<a href="/event-logs">Event Log</a>
+		<a href="/event-logs"><i class="fa-solid fa-clipboard-list"></i><span>Event Log</span></a>
     {% elif role == 'operator' %}
         <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
         <a href="/alerts"><i class="fa-solid fa-triangle-exclamation"></i><span>Alerts</span></a>
     {% elif role == 'viewer' %}
         <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
     {% endif %}
+</nav>
 
         <div class="sidebar-footer">
             <div class="live-dot"><span></span> Live monitoring</div>
@@ -57,35 +60,65 @@
 
     <main class="main-content">
         <header class="topbar">
-            <!-- <div class="search-box">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="search" placeholder="Search dashboard, devices, reports...">
-            </div> -->
-            <select id="themeSelect" class="theme-select" title="Change theme">
-                <option value="aurora">Aurora</option>
-                <option value="ocean">Ocean</option>
-                <option value="midnight">Midnight</option>
-                <option value="sunset">Sunset</option>
-                <option value="forest">Forest</option>
-                <option value="violet">Violet</option>
-                <option value="graphite">Graphite</option>
-            </select>
-            <div class="user-chip">
-				{% if user and user.customer and user.customer.logo_path %}
-					<img
-						src="{{ user.customer.logo_path }}"
-						alt="Customer Logo"
-						style="width:46px;height:46px;border-radius:14px;object-fit:cover;"
-					>
-				{% else %}
-					<span>{{ (user.name[0] if user and user.name else 'S') }}</span>
-				{% endif %}
+            <div class="topbar-left">
+                <button class="mobile-menu-btn" type="button" id="sidebarToggle" aria-label="Open menu" aria-expanded="false">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+            </div>
 
-				<div>
-					<b>{{ user.name if user else 'System' }}</b>
-					<a href="/logout">Logout</a>
-				</div>
-			</div>
+            <div class="topbar-context" aria-label="Platform status">
+                <div class="topbar-context-icon" aria-hidden="true">
+                    <i class="fa-solid fa-industry"></i>
+                </div>
+                <div class="topbar-context-copy">
+                    <strong>Industrial IoT Command Center</strong>
+                    <span>Monitor connected assets, live MQTT data and operational events</span>
+                </div>
+            </div>
+
+            <div class="top-actions">
+                <label class="theme-control" for="themeSelect">
+                    <i class="fa-solid fa-palette"></i>
+                    <select id="themeSelect" class="theme-select" title="Change theme">
+                        <option value="aurora">Aurora</option>
+                        <option value="ocean">Ocean</option>
+                        <option value="midnight">Midnight</option>
+                        <option value="sunset">Sunset</option>
+                        <option value="forest">Forest</option>
+                        <option value="violet">Violet</option>
+                        <option value="graphite">Graphite</option>
+                    </select>
+                </label>
+
+                <details class="user-menu">
+                    <summary class="user-chip">
+                        {% if user and user.customer and user.customer.logo_path %}
+                            <div class="user-avatar-frame">
+                                <img class="user-account-logo"
+                                     src="{{ asset_url(user.customer.logo_path) }}"
+                                     alt="{{ user.customer.name if user.customer else 'Customer' }} logo"
+                                     onerror="this.parentElement.classList.add('is-fallback'); this.remove();">
+                                <span class="user-avatar-fallback">{{ (user.customer.name[0] if user.customer and user.customer.name else (user.name[0] if user and user.name else 'S')) }}</span>
+                            </div>
+                        {% else %}
+                            <div class="user-avatar-frame is-fallback">
+                                <span class="user-avatar-fallback">{{ (user.name[0] if user and user.name else 'S') }}</span>
+                            </div>
+                        {% endif %}
+                        <div class="user-chip-text">
+                            <b>{{ user.name if user else 'System' }}</b>
+                            <small>{{ role.replace('_', ' ') if role else 'User' }}</small>
+                        </div>
+                        <i class="fa-solid fa-chevron-down user-chevron"></i>
+                    </summary>
+                    <div class="user-dropdown">
+                        <div class="dropdown-title">Signed in as</div>
+                        <strong>{{ user.name if user else 'System' }}</strong>
+                        <a class="dropdown-action" href="/settings"><i class="fa-solid fa-gear"></i> Settings</a>
+                        <a class="dropdown-action logout-action" href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                    </div>
+                </details>
+            </div>
         </header>
 
         <section class="content-card">
@@ -93,6 +126,7 @@
         </section>
     </main>
 </div>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
 <script>
 (function(){
@@ -106,6 +140,33 @@
             localStorage.setItem('sx_theme', this.value);
         });
     }
+    const toggle = document.getElementById('sidebarToggle');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    function closeSidebar(){
+        document.body.classList.remove('sidebar-open');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    }
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            const isOpen = document.body.classList.toggle('sidebar-open');
+            toggle.setAttribute('aria-expanded', String(isOpen));
+        });
+    }
+    if (backdrop) backdrop.addEventListener('click', closeSidebar);
+    document.querySelectorAll('.nav-menu a').forEach(a => a.addEventListener('click', closeSidebar));
+
+    const userMenu = document.querySelector('.user-menu');
+    document.addEventListener('click', function(event){
+        if (userMenu && userMenu.open && !userMenu.contains(event.target)) {
+            userMenu.removeAttribute('open');
+        }
+    });
+    document.addEventListener('keydown', function(event){
+        if (event.key === 'Escape') {
+            if (userMenu) userMenu.removeAttribute('open');
+            closeSidebar();
+        }
+    });
 })();
 </script>
 </body>

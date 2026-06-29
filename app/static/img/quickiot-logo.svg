@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 170" role="img" aria-labelledby="title desc">
+  <title id="title">QuickIOT</title>
+  <desc id="desc">QuickIOT industrial connectivity logo</desc>
+  <g fill="#2f5ca0">
+    <text x="8" y="128" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-size="132" font-weight="700" letter-spacing="-8">QuickI</text>
+    <text x="528" y="128" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-size="132" font-weight="700" letter-spacing="-8">T</text>
+    <!-- Stylized connected O -->
+    <circle cx="492" cy="84" r="48" fill="none" stroke="#2f5ca0" stroke-width="16"/>
+    <circle cx="492" cy="84" r="11"/>
+    <path d="M492 58c15 0 27 12 27 27M465 85c0-15 12-27 27-27M492 111c-15 0-27-12-27-27M519 84c0 15-12 27-27 27" fill="none" stroke="#2f5ca0" stroke-width="8" stroke-linecap="round"/>
+    <path d="M492 27V10M549 84h17M492 141v17M435 84h-17" stroke="#2f5ca0" stroke-width="10" stroke-linecap="round"/>
+    <path d="M532 44l12-12M532 124l12 12M452 124l-12 12M452 44l-12-12" stroke="#2f5ca0" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="492" cy="10" r="7"/><circle cx="566" cy="84" r="7"/><circle cx="492" cy="158" r="7"/><circle cx="418" cy="84" r="7"/>
+  </g>
+  <text x="706" y="34" font-family="Arial, sans-serif" font-size="34" fill="#111">®</text>
+</svg>
