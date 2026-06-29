@@ -45,10 +45,10 @@
         <a href="/alerts"><i class="fa-solid fa-triangle-exclamation"></i><span>Alerts</span></a>
         <a href="/diagnostics"><i class="fa-solid fa-stethoscope"></i><span>Diagnostics</span></a>
 		<a href="/event-logs"><i class="fa-solid fa-clipboard-list"></i><span>Event Log</span></a>
-    {% elif role == 'operator' %}
+    {% elif role == 'customer_user' %}
         <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
         <a href="/alerts"><i class="fa-solid fa-triangle-exclamation"></i><span>Alerts</span></a>
-    {% elif role == 'viewer' %}
+    {% elif role == 'engineer' %}
         <a href="/reports"><i class="fa-solid fa-file-excel"></i><span>Reports</span></a>
     {% endif %}
 </nav>
